@@ -2,7 +2,8 @@
 // This file contains utility functions for interacting with your Node.js/Express backend API.
 
 // Replace with your deployed Render API URL or local development URL
-const BACKEND_API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3000/api";
+const BACKEND_API_BASE_URL =
+  process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3000/api";
 
 interface AuthResponse {
   message: string;
@@ -17,6 +18,17 @@ interface AuthResponse {
 
 interface ErrorResponse {
   message: string;
+}
+
+// Interface for a favorite verse item received from the backend
+interface FavoriteVerse {
+  id: number;
+  user_id: number; // Matches backend schema
+  book: string;
+  chapter: number;
+  verse_number: number;
+  verse_text: string;
+  created_at: string; // ISO string date
 }
 
 /**
@@ -45,7 +57,8 @@ export async function makeBackendApiRequest<T>(
     method,
     headers,
     // Safely stringify body: check if it's not null/undefined before stringifying
-    body: (body !== undefined && body !== null) ? JSON.stringify(body) : undefined,
+    body:
+      body !== undefined && body !== null ? JSON.stringify(body) : undefined,
   };
 
   try {
@@ -59,7 +72,8 @@ export async function makeBackendApiRequest<T>(
 
     // Return JSON for successful responses
     return response.json();
-  } catch (err: unknown) { // Changed 'any' to 'unknown'
+  } catch (err: unknown) {
+    // Changed 'any' to 'unknown'
     console.error(`Error making request to ${endpoint}:`, err);
     if (err instanceof Error) {
       throw err; // Re-throw the error if it's an Error instance
@@ -76,8 +90,16 @@ export async function makeBackendApiRequest<T>(
  * @param password - User's password.
  * @returns A promise that resolves to the AuthResponse.
  */
-export async function signupUser(username: string, email: string, password: string): Promise<AuthResponse> {
-  return makeBackendApiRequest<AuthResponse>("/auth/signup", "POST", { username, email, password });
+export async function signupUser(
+  username: string,
+  email: string,
+  password: string
+): Promise<AuthResponse> {
+  return makeBackendApiRequest<AuthResponse>("/auth/signup", "POST", {
+    username,
+    email,
+    password,
+  });
 }
 
 /**
@@ -86,8 +108,64 @@ export async function signupUser(username: string, email: string, password: stri
  * @param password - User's password.
  * @returns A promise that resolves to the AuthResponse.
  */
-export async function loginUser(email: string, password: string): Promise<AuthResponse> {
-  return makeBackendApiRequest<AuthResponse>("/auth/login", "POST", { email, password });
+export async function loginUser(
+  email: string,
+  password: string
+): Promise<AuthResponse> {
+  return makeBackendApiRequest<AuthResponse>("/auth/login", "POST", {
+    email,
+    password,
+  });
 }
 
-// You will add more functions here for favorite verses later (add, get, delete)
+/**
+ * Adds a verse to the user's favorites.
+ * @param token - The user's authentication token.
+ * @param verseDetails - Object containing book, chapter, verse_number, verse_text.
+ * @returns A promise that resolves to the added FavoriteVerse.
+ */
+export async function addFavoriteVerse(
+  token: string,
+  verseDetails: Omit<FavoriteVerse, "id" | "user_id" | "created_at">
+): Promise<{ message: string; verse: FavoriteVerse }> {
+  return makeBackendApiRequest<{ message: string; verse: FavoriteVerse }>(
+    "/verses/favorites",
+    "POST",
+    verseDetails,
+    token
+  );
+}
+
+/**
+ * Retrieves all favorite verses for the authenticated user.
+ * @param token - The user's authentication token.
+ * @returns A promise that resolves to an array of FavoriteVerse objects.
+ */
+export async function getFavoriteVerses(
+  token: string
+): Promise<{ message: string; verses: FavoriteVerse[] }> {
+  return makeBackendApiRequest<{ message: string; verses: FavoriteVerse[] }>(
+    "/verses/favorites",
+    "GET",
+    undefined,
+    token
+  );
+}
+
+/**
+ * Deletes a favorite verse by its ID.
+ * @param token - The user's authentication token.
+ * @param verseId - The ID of the favorite verse to delete.
+ * @returns A promise that resolves to a success message.
+ */
+export async function deleteFavoriteVerse(
+  token: string,
+  verseId: number
+): Promise<{ message: string }> {
+  return makeBackendApiRequest<{ message: string }>(
+    `/verses/favorites/${verseId}`,
+    "DELETE",
+    undefined,
+    token
+  );
+}
