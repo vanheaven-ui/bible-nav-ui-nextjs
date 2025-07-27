@@ -1,47 +1,50 @@
+// src/app/page.tsx
 // This is the main homepage of your Bible Nav application using the App Router.
 
-// Note: In App Router, `Head` is replaced by `metadata` in layout.tsx or page.tsx
-// For dynamic metadata, you can export a `generateMetadata` function.
+"use client"; // This component uses client-side hooks like useState, useEffect, useRouter
+import React, { useState, useEffect } from "react";
+import Link from "next/link"; // Import Link for navigation
+import { fetchVerseOfTheDay } from "../lib/bibleApi";
+import { useAuthStore } from "../store/authStore"; // Import the Zustand auth store
+
+interface VerseData {
+  text: string;
+  reference: string;
+  version: string;
+}
 
 const HomePage: React.FC = () => {
+  const [verseOfTheDay, setVerseOfTheDay] = useState<VerseData | null>(null);
+  const [loadingVerse, setLoadingVerse] = useState<boolean>(true);
+  const [verseError, setVerseError] = useState<string | null>(null);
+
+  const { isAuthenticated, user } = useAuthStore();
+
+  useEffect(() => {
+    const getVerse = async () => {
+      setLoadingVerse(true);
+      setVerseError(null);
+      const data = await fetchVerseOfTheDay();
+      if (data && data.verse && data.verse.details) {
+        setVerseOfTheDay({
+          text: data.verse.details.text,
+          reference: data.verse.details.reference,
+          version: data.verse.details.version,
+        });
+      } else {
+        setVerseError(
+          "Failed to load Verse of the Day. Please try again later."
+        );
+      }
+      setLoadingVerse(false);
+    };
+
+    getVerse();
+  }, []); // Empty dependency array means this runs once on mount
+
   return (
-    // Main container: Removed redundant nested div.
-    // Adjusted padding (px-4 sm:px-6 lg:px-8) for responsiveness.
-    // Added flex-col to stack content vertically.
-    // min-h-screen ensures it takes full viewport height.
-    <div className="min-h-screen flex flex-col items-center justify-between bg-gray-50 text-gray-900">
-      {/* Header/Navigation Placeholder */}
-      <header className="w-full bg-white shadow-sm py-4 px-4 sm:px-6 lg:px-8">
-        <nav className="flex justify-between items-center max-w-7xl mx-auto">
-          <div className="text-2xl font-bold text-blue-700">Bible Nav</div>
-          <div className="space-x-4">
-            <a
-              href="#"
-              className="text-gray-600 hover:text-blue-700 transition-colors"
-            >
-              Home
-            </a>
-            <a
-              href="#"
-              className="text-gray-600 hover:text-blue-700 transition-colors"
-            >
-              Books
-            </a>
-            <a
-              href="#"
-              className="text-gray-600 hover:text-blue-700 transition-colors"
-            >
-              Favorites
-            </a>
-            <a
-              href="#"
-              className="text-gray-600 hover:text-blue-700 transition-colors"
-            >
-              Login
-            </a>
-          </div>
-        </nav>
-      </header>
+    <div className="min-h-screen flex flex-col items-center justify-between">
+      {/* Header/Navigation is now handled by src/app/layout.tsx */}
 
       <main className="flex flex-col items-center justify-center flex-1 w-full px-4 sm:px-6 lg:px-8 py-12">
         <h1 className="text-5xl sm:text-6xl font-extrabold text-blue-800 leading-tight animate-fade-in-down">
@@ -69,18 +72,30 @@ const HomePage: React.FC = () => {
             </svg>
             Verse of the Day
           </h2>
-          <p className="text-lg italic text-gray-800 leading-relaxed">
-            "For God so loved the world, that he gave his only begotten Son,
-            that whosoever believeth in him should not perish, but have
-            everlasting life."
-          </p>
-          <p className="text-sm text-gray-600 mt-3">- John 3:16 (KJV)</p>
+          {loadingVerse ? (
+            <p className="text-lg italic text-gray-600">Loading verse...</p>
+          ) : verseError ? (
+            <p className="text-lg italic text-red-500">{verseError}</p>
+          ) : verseOfTheDay ? (
+            <>
+              <p className="text-lg italic text-gray-800 leading-relaxed">
+                &quot;{verseOfTheDay.text}&quot;
+              </p>
+              <p className="text-sm text-gray-600 mt-3">
+                - {verseOfTheDay.reference} ({verseOfTheDay.version})
+              </p>
+            </>
+          ) : (
+            <p className="text-lg italic text-gray-600">
+              No verse available today.
+            </p>
+          )}
         </section>
 
         {/* Feature Cards */}
         <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
-          <a
-            href="#" // Placeholder link
+          <Link
+            href="/books"
             className="group p-8 bg-white rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl hover:border-blue-300 transition-all duration-300 transform hover:-translate-y-1"
           >
             <h3 className="text-2xl font-bold text-blue-700 group-hover:text-blue-800 transition-colors">
@@ -92,10 +107,10 @@ const HomePage: React.FC = () => {
             <p className="mt-4 text-lg text-gray-600">
               Find any book, chapter, or verse in the Bible with ease.
             </p>
-          </a>
+          </Link>
 
-          <a
-            href="#" // Placeholder link
+          <Link
+            href="/favorites"
             className="group p-8 bg-white rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl hover:border-yellow-300 transition-all duration-300 transform hover:-translate-y-1"
           >
             <h3 className="text-2xl font-bold text-yellow-600 group-hover:text-yellow-700 transition-colors">
@@ -107,21 +122,9 @@ const HomePage: React.FC = () => {
             <p className="mt-4 text-lg text-gray-600">
               Keep track of your most cherished verses and revisit them anytime.
             </p>
-          </a>
+          </Link>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="flex items-center justify-center w-full h-16 border-t mt-12 bg-white text-gray-600">
-        <a
-          className="flex items-center justify-center gap-2 text-sm"
-          href="https://github.com/your-github-profile" // Replace with your GitHub
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by Bible Nav API & Next.js
-        </a>
-      </footer>
     </div>
   );
 };
