@@ -3,9 +3,10 @@
 // It defines the HTML structure, global styles, and metadata.
 
 import type { Metadata } from "next";
-import { Inter } from "next/font/google"; // Using Next.js Font Optimization
-import "./globals.css"; // Import global styles (Tailwind CSS)
-import Navbar from "../components/Navbar"; // Import the new Navbar component
+import { Inter } from "next/font/google"; 
+import "./globals.css"; 
+import Navbar from "../components/Navbar"; 
+import Footer from "@/components/Footer";
 
 // Initialize the Inter font
 const inter = Inter({ subsets: ["latin"] });
@@ -32,14 +33,11 @@ export default function RootLayout({
             "url('https://placehold.co/1920x1080/E0F2FE/6B46C1?text=Open+Bible+Light+Path')",
         }}
       >
-        <Navbar /> {/* Render the Navbar here */}
-        {/* This div ensures children fills remaining space and adds padding for the fixed navbar */}
-        {/* Reduced bg-opacity to make the background image more visible for testing */}
+        <Navbar />
         <div className="flex-1 flex flex-col pt-24 bg-white bg-opacity-20 backdrop-blur-sm">
-          {" "}
-          {/* Changed bg-opacity-80 to bg-opacity-20 */}
           {children}
         </div>
+        <Footer />
       </body>
     </html>
   );

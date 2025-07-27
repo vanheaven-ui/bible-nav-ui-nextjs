@@ -108,8 +108,8 @@ const FavoritesPage: React.FC = () => {
           <p className="text-center text-red-600 text-lg">{error}</p>
         ) : favoriteVerses.length === 0 ? (
           <p className="text-center text-gray-600 text-lg">
-            You haven't added any favorite verses yet. Start exploring!
-          </p>
+            You haven&apos;t added any favorite verses yet. Start exploring!
+          </p> // Escaped apostrophe
         ) : (
           <div className="grid grid-cols-1 gap-6">
             {favoriteVerses.map((verse) => (
@@ -122,7 +122,7 @@ const FavoritesPage: React.FC = () => {
                     {verse.book} {verse.chapter}:{verse.verse_number}
                   </p>
                   <p className="text-gray-800 italic mt-2 leading-relaxed">
-                    "{verse.verse_text}"
+                    &quot;{verse.verse_text}&quot; {/* Escaped double quotes */}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
                     Added on: {new Date(verse.created_at).toLocaleDateString()}

@@ -18,8 +18,6 @@ const HomePage: React.FC = () => {
   const [loadingVerse, setLoadingVerse] = useState<boolean>(true);
   const [verseError, setVerseError] = useState<string | null>(null);
 
-  // No longer need isAuthenticated, user, clearAuth directly here for navigation,
-  // as Navbar handles it. Keeping for potential future direct use on page.
   const { isAuthenticated, user } = useAuthStore();
 
   useEffect(() => {
@@ -45,7 +43,6 @@ const HomePage: React.FC = () => {
   }, []); // Empty dependency array means this runs once on mount
 
   return (
-    // Removed bg-gray-50 text-gray-900 from here as it's now in globals.css
     <div className="min-h-screen flex flex-col items-center justify-between">
       {/* Header/Navigation is now handled by src/app/layout.tsx */}
 
@@ -128,18 +125,6 @@ const HomePage: React.FC = () => {
           </Link>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="flex items-center justify-center w-full h-16 border-t mt-12 bg-white text-gray-600">
-        <a
-          className="flex items-center justify-center gap-2 text-sm"
-          href="https://github.com/your-github-profile" // Replace with your GitHub
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by Bible Nav API & Next.js
-        </a>
-      </footer>
     </div>
   );
 };
