@@ -1,14 +1,10 @@
-// src/app/favorites/page.tsx
-// This page displays a user's favorite Bible verses and allows them to manage them.
-
-"use client"; // This component uses client-side hooks
+"use client"; 
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "../../store/authStore";
 import { getFavoriteVerses, deleteFavoriteVerse } from "../../lib/backendApi";
 
-// Re-using the FavoriteVerse interface from backendApi.ts for consistency
 interface FavoriteVerse {
   id: number;
   user_id: number;
@@ -40,7 +36,7 @@ const FavoritesPage: React.FC = () => {
     const fetchFavorites = async () => {
       if (!token) {
         setLoading(false);
-        return; // Wait for token if not available yet
+        return; 
       }
 
       setLoading(true);
@@ -90,7 +86,7 @@ const FavoritesPage: React.FC = () => {
   };
 
   if (!isAuthenticated && !loading) {
-    return null; // Or a loading spinner, as redirect is handled by useEffect
+    return null; 
   }
 
   return (
@@ -109,7 +105,7 @@ const FavoritesPage: React.FC = () => {
         ) : favoriteVerses.length === 0 ? (
           <p className="text-center text-gray-600 text-lg">
             You haven&apos;t added any favorite verses yet. Start exploring!
-          </p> // Escaped apostrophe
+          </p>
         ) : (
           <div className="grid grid-cols-1 gap-6">
             {favoriteVerses.map((verse) => (
@@ -122,7 +118,7 @@ const FavoritesPage: React.FC = () => {
                     {verse.book} {verse.chapter}:{verse.verse_number}
                   </p>
                   <p className="text-gray-800 italic mt-2 leading-relaxed">
-                    &quot;{verse.verse_text}&quot; {/* Escaped double quotes */}
+                    &quot;{verse.verse_text}&quot; 
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
                     Added on: {new Date(verse.created_at).toLocaleDateString()}

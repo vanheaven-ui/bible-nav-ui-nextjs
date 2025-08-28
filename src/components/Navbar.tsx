@@ -1,4 +1,3 @@
-// src/components/Navbar.tsx
 // This component provides the global navigation bar for the application.
 
 "use client";
@@ -39,12 +38,10 @@ const Navbar: React.FC = () => {
   };
 
   return (
-    // Fixed header for sticky effect and backdrop blur
     <header
       className={`fixed top-0 left-0 w-full z-50 bg-gray-50 bg-opacity-90 backdrop-blur-sm transition-all duration-300
       ${isScrolled ? "py-0.5 shadow-lg" : "py-1 shadow-md"}`}
     >
-      {/* Inner nav: "floating card" appearance, centered, with dynamic styling */}
       <nav
         className={`max-w-7xl mx-auto rounded-xl border border-blue-200 flex items-center justify-between transition-all duration-300
         ${
@@ -53,7 +50,6 @@ const Navbar: React.FC = () => {
             : "my-1 p-2 sm:p-2.5 lg:p-3 bg-blue-50"
         }`}
       >
-        {/* Logo/Brand with dynamic size on scroll */}
         <Link
           href="/"
           className={`flex items-center space-x-2 text-blue-800 hover:text-blue-900 transition-colors flex-shrink-0
