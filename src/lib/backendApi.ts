@@ -1,5 +1,5 @@
 const BACKEND_API_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3000/api";
+  process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api";
 
 interface ErrorResponse {
   message: string;
@@ -33,6 +33,20 @@ export interface FavoriteVerse {
   verse_number: number;
   verse_text: string;
   created_at: string;
+}
+
+// User type for login
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  created_at?: string;
+}
+
+// Login response type
+export interface LoginResponse {
+  token: string;
+  user: User;
 }
 
 /**
@@ -76,6 +90,23 @@ async function makeBackendApiRequest<T>(
 }
 
 //
+// ---------- 🔹 Authentication API Functions ----------
+//
+
+/**
+ * Logs a user in and returns a token and user details.
+ * @param email - The user's email.
+ * @param password - The user's password.
+ */
+export async function loginUser(email: string, password: string): Promise<LoginResponse> {
+  return makeBackendApiRequest<LoginResponse>(
+    "/auth/login",
+    "POST",
+    { email, password }
+  );
+}
+
+//
 // ---------- 🔹 Bible API Functions ----------
 //
 
@@ -100,9 +131,8 @@ export async function fetchChapterVerses(
   );
 }
 
-//
-// ---------- 🔹 Favorite Verses API (already in your file) ----------
-//
+// ---------- 🔹 Favorite Verses API  ----------
+
 export async function addFavoriteVerse(
   token: string,
   verseDetails: Omit<FavoriteVerse, "id" | "user_id" | "created_at">

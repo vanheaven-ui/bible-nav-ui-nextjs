@@ -16,7 +16,7 @@ const HomePage: React.FC = () => {
   const [loadingVerse, setLoadingVerse] = useState<boolean>(true);
   const [verseError, setVerseError] = useState<string | null>(null);
 
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     const getVerse = async () => {

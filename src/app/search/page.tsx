@@ -23,7 +23,9 @@ const SearchPage: React.FC = () => {
         setError("No results found. Try another search.");
       }
       setResults(data);
-    } catch (err) {
+    } catch (err: unknown) {
+      // Resolved the linter warning by explicitly using the error variable.
+      console.error("Search failed:", err);
       setError("Failed to search. Please try again later.");
       setResults([]);
     } finally {

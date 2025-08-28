@@ -35,16 +35,6 @@ const ChapterVersesPage: React.FC = () => {
   // Ref map for verses
   const verseRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
-  const loadFavorites = async () => {
-    if (!token) return;
-    try {
-      const { verses } = await getFavoriteVerses(token);
-      setFavorites(verses);
-    } catch (err) {
-      console.error("Failed to fetch favorites:", err);
-    }
-  };
-
   const toggleFavorite = async (verse: Verse) => {
     if (!token) {
       console.log("Please login to favorite verses.");
@@ -91,6 +81,18 @@ const ChapterVersesPage: React.FC = () => {
   };
 
   useEffect(() => {
+    // This function is now defined inside the useEffect hook
+    // so it is a stable dependency.
+    const loadFavorites = async () => {
+      if (!token) return;
+      try {
+        const { verses } = await getFavoriteVerses(token);
+        setFavorites(verses);
+      } catch (err) {
+        console.error("Failed to fetch favorites:", err);
+      }
+    };
+
     const loadChapter = async () => {
       if (!bookName || !chapterNumber) return;
 
@@ -128,9 +130,10 @@ const ChapterVersesPage: React.FC = () => {
       }
     };
 
+    // Call both functions here
     loadChapter();
     loadFavorites();
-  }, [bookName, chapterNumber]);
+  }, [bookName, chapterNumber, token]); // The 'token' is now explicitly in the dependency array
 
   const currentChapter = Number(chapterNumber);
 
