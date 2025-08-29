@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signupUser } from "../../lib/backendApi";
+import * as api from "@/lib/backendApi";
 import { useAuthStore } from "../../store/authStore";
 
 const SignupPage: React.FC = () => {
@@ -29,7 +29,7 @@ const SignupPage: React.FC = () => {
     }
 
     try {
-      const data = await signupUser(username, email, password);
+      const data = await api.signupUser(username, email, password);
       setAuth(data.token, data.user);
       router.push("/");
     } catch (err: unknown) {

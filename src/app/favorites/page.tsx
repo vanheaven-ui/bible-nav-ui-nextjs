@@ -1,9 +1,10 @@
-"use client"; 
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "../../store/authStore";
 import { getFavoriteVerses, deleteFavoriteVerse } from "../../lib/backendApi";
+import Link from "next/link"; // Import Link component
 
 interface FavoriteVerse {
   id: number;
@@ -36,7 +37,7 @@ const FavoritesPage: React.FC = () => {
     const fetchFavorites = async () => {
       if (!token) {
         setLoading(false);
-        return; 
+        return;
       }
 
       setLoading(true);
@@ -86,7 +87,7 @@ const FavoritesPage: React.FC = () => {
   };
 
   if (!isAuthenticated && !loading) {
-    return null; 
+    return null;
   }
 
   return (
@@ -103,9 +104,21 @@ const FavoritesPage: React.FC = () => {
         ) : error ? (
           <p className="text-center text-red-600 text-lg">{error}</p>
         ) : favoriteVerses.length === 0 ? (
-          <p className="text-center text-gray-600 text-lg">
-            You haven&apos;t added any favorite verses yet. Start exploring!
-          </p>
+          <div className="flex flex-col items-center justify-center text-center space-y-6 p-8">
+            <h2 className="text-2xl font-bold text-gray-700">
+              Your favorites list is empty.
+            </h2>
+            <p className="text-gray-600 max-w-sm">
+              Start your journey through the scriptures and add verses to your
+              favorites.
+            </p>
+            <Link
+              href="/books"
+              className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors transform hover:scale-105"
+            >
+              Start Exploring! 📖
+            </Link>
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-6">
             {favoriteVerses.map((verse) => (
@@ -118,7 +131,7 @@ const FavoritesPage: React.FC = () => {
                     {verse.book} {verse.chapter}:{verse.verse_number}
                   </p>
                   <p className="text-gray-800 italic mt-2 leading-relaxed">
-                    &quot;{verse.verse_text}&quot; 
+                    &quot;{verse.verse_text}&quot;
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
                     Added on: {new Date(verse.created_at).toLocaleDateString()}

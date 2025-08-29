@@ -1,31 +1,27 @@
-// This component provides the global navigation bar for the application.
-
 "use client";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "../store/authStore";
+import { useVerseStore } from "../store/verseStore"; // Import the new store
 
 const Navbar: React.FC = () => {
   const { isAuthenticated, user, clearAuth } = useAuthStore();
+  const { hasNewVerse } = useVerseStore(); // Get the notification state
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // Function to handle scroll event for dynamic Navbar styling
   useEffect(() => {
     const handleScroll = () => {
-      // Check if user has scrolled down more than 50px
       if (window.scrollY > 50) {
         setIsScrolled(true);
       } else {
         setIsScrolled(false);
       }
     };
-
     window.addEventListener("scroll", handleScroll);
-
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
@@ -120,14 +116,7 @@ const Navbar: React.FC = () => {
               stroke="#CBD5E0"
               strokeWidth="1.5"
             />
-            <line
-              x1="30"
-              y1="65"
-              x2="45"
-              y2="63"
-              stroke="#CBD5E0"
-              strokeWidth="1.5"
-            />
+            <line x1="30" y1="65" y2="63" stroke="#CBD5E0" strokeWidth="1.5" />
 
             <line
               x1="55"
@@ -232,8 +221,11 @@ const Navbar: React.FC = () => {
           )}
           {isAuthenticated ? (
             <>
-              <span className="text-gray-800 text-base font-semibold">
+              <span className="text-gray-800 text-base font-semibold relative">
                 Hello, {user?.username || "User"}!
+                {hasNewVerse && (
+                  <span className="absolute -top-1 -right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                )}
               </span>
               <button
                 onClick={handleLogout}
@@ -283,8 +275,11 @@ const Navbar: React.FC = () => {
             )}
             {isAuthenticated ? (
               <>
-                <span className="text-gray-800 text-base font-semibold w-full text-center py-1.5">
+                <span className="text-gray-800 text-base font-semibold w-full text-center py-1.5 relative">
                   Hello, {user?.username || "User"}!
+                  {hasNewVerse && (
+                    <span className="absolute -top-1 right-1/4 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                  )}
                 </span>
                 <button
                   onClick={handleLogout}

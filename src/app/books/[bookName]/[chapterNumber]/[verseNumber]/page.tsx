@@ -1,286 +1,348 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  createEditor,
+  Descendant,
+  Editor,
+  Text,
+  Element,
+  BaseText,
+  Node,
+} from "slate";
+import { Slate, Editable, withReact } from "slate-react";
+import { withHistory } from "slate-history";
 import { useParams } from "next/navigation";
-import Link from "next/link";
+import { addNote, getNotes, deleteNote, type Note } from "@/lib/backendApi";
+import { fetchBibleVerse } from "@/lib/bibleApi";
 
-// Define a placeholder function for the Bible API to allow the UI to function
-const fetchBibleChapter = async (book: string, chapter: number) => {
-  return {
-    chapter: chapter,
-    verses: [
-      {
-        verse: 1,
-        text: "In the beginning was the Word, and the Word was with God, and the Word was God.",
-      },
-      {
-        verse: 2,
-        text: "He was with God in the beginning.",
-      },
-      {
-        verse: 3,
-        text: "Through him all things were made; without him nothing was made that has been made.",
-      },
-      {
-        verse: 4,
-        text: "In him was life, and that life was the light of all mankind.",
-      },
-      {
-        verse: 5,
-        text: "The light shines in the darkness, and the darkness has not overcome it.",
-      },
-      {
-        verse: 6,
-        text: "There was a man sent from God whose name was John.",
-      },
-      {
-        verse: 7,
-        text: "He came as a witness to testify concerning that light, so that through him all might believe.",
-      },
-      {
-        verse: 8,
-        text: "He himself was not the light; he came only as a witness to the light.",
-      },
-      {
-        verse: 9,
-        text: "The true light that gives light to everyone was coming into the world.",
-      },
-      {
-        verse: 10,
-        text: "He was in the world, and though the world was made through him, the world did not recognize him.",
-      },
-      {
-        verse: 11,
-        text: "He came to that which was his own, but his own did not receive him.",
-      },
-      {
-        verse: 12,
-        text: "Yet to all who did receive him, to those who believed in his name, he gave the right to become children of God—",
-      },
-      {
-        verse: 13,
-        text: "children born not of natural descent, nor of human decision or a husband’s will, but born of God.",
-      },
-      {
-        verse: 14,
-        text: "The Word became flesh and made his dwelling among us. We have seen his glory, the glory of the one and only Son, who came from the Father, full of grace and truth.",
-      },
-    ],
-  };
+// Helper function to check if an object is a Text node
+const isText = (node: Node): node is Text => {
+  return Text.isText(node);
 };
 
-interface Verse {
-  verse_number: number;
-  text: string;
+// Helper function to check if a node is an empty block
+const isEmptyBlock = (editor: Editor, node: Node): boolean => {
+  if (Element.isElement(node) && !editor.isVoid(node)) {
+    const childrenAreText = node.children.every(isText);
+    const childrenAreEmpty = (node.children as BaseText[]).every(
+      (n) => n.text === ""
+    );
+    return childrenAreText && childrenAreEmpty;
+  }
+  return false;
+};
+
+// Define a type for our custom marks
+type CustomMarks = "bold" | "italic" | "underline";
+
+// Define a type for the leaf node to include our custom marks
+interface CustomText extends BaseText {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
 }
 
-/**
- * A custom modal component to display messages to the user.
- * It replaces the use of `alert()` and `confirm()` for better UX.
- */
-const CustomModal = ({
-  message,
-  onClose,
-}: {
-  message: string;
-  onClose: () => void;
-}) => {
-  return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex justify-center items-center z-50">
-      <div className="relative p-8 bg-white w-96 max-w-lg mx-auto rounded-lg shadow-xl text-center">
-        <h3 className="text-xl font-semibold mb-4 text-gray-800">
-          Note Saved!
-        </h3>
-        <p className="text-gray-600 mb-6">{message}</p>
-        <button
-          onClick={onClose}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          OK
-        </button>
-      </div>
-    </div>
-  );
-};
-
-/**
- * The main component for the note-taking page.
- * It displays a specific verse and provides a rich text editor for notes.
- */
 const VerseNotePage: React.FC = () => {
-  const { bookName, chapterNumber, verseNumber } = useParams();
-  const editorRef = useRef<HTMLDivElement>(null);
-  const [verse, setVerse] = useState<Verse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [noteSaving, setNoteSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const { bookName: encodedBookName, chapterNumber, verseNumber } = useParams();
+  const bookName = encodedBookName
+    ? decodeURIComponent(encodedBookName as string)
+    : "";
 
-  // Fetch verse text on component mount
-  useEffect(() => {
-    const fetchVerse = async () => {
-      if (!bookName || !chapterNumber || !verseNumber) {
-        setError("Missing book, chapter, or verse information.");
-        setLoading(false);
-        return;
+  const [verseText, setVerseText] = useState("Loading verse...");
+  const [userNotes, setUserNotes] = useState<Note[]>([]);
+  const [currentNoteContent, setCurrentNoteContent] = useState<Descendant[]>(
+    []
+  );
+  const [showSaved, setShowSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const editor = useMemo(() => withHistory(withReact(createEditor())), []);
+
+  const initialValue: Descendant[] = useMemo(
+    () => [
+      {
+        type: "paragraph",
+        children: [{ text: "" }],
+      },
+    ],
+    []
+  );
+
+  const renderLeaf = useCallback(
+    ({
+      attributes,
+      children,
+      leaf,
+    }: {
+      attributes: any;
+      children: React.ReactNode;
+      leaf: CustomText;
+    }) => {
+      let newChildren: React.ReactNode = children;
+      if (leaf.bold) {
+        newChildren = <strong>{newChildren}</strong>;
       }
+      if (leaf.italic) {
+        newChildren = <em>{newChildren}</em>;
+      }
+      if (leaf.underline) {
+        newChildren = <u>{newChildren}</u>;
+      }
+      return <span {...attributes}>{newChildren}</span>;
+    },
+    []
+  );
+
+  const toggleFormat = (format: CustomMarks) => {
+    const isActive = isFormatActive(editor, format);
+    if (isActive) {
+      Editor.removeMark(editor, format);
+    } else {
+      Editor.addMark(editor, format, true);
+    }
+  };
+
+  const isFormatActive = (editor: Editor, format: CustomMarks) => {
+    const marks = Editor.marks(editor) as CustomText | null;
+    if (!marks) return false;
+    return !!marks[format];
+  };
+
+  useEffect(() => {
+    const fetchVerseAndNotes = async () => {
+      setLoading(true);
+      setError(null);
+
+      const reference = `${bookName} ${chapterNumber}:${verseNumber}`;
 
       try {
-        const book = decodeURIComponent(bookName as string);
-        const chapterNum = Number(chapterNumber);
-        const verseNum = Number(verseNumber);
-
-        // Fetch verse content using a placeholder function
-        const bibleChapter = await fetchBibleChapter(book, chapterNum);
-        const foundVerse = bibleChapter?.verses.find(
-          (v) => v.verse === verseNum
-        );
-
-        if (foundVerse) {
-          setVerse({ verse_number: foundVerse.verse, text: foundVerse.text });
+        const fetchedVerse = await fetchBibleVerse(reference);
+        if (fetchedVerse) {
+          setVerseText(fetchedVerse.text);
         } else {
-          setError("Verse not found.");
+          setVerseText("Verse not found.");
+          setError("Could not find this verse. Please check the reference.");
         }
       } catch (err) {
-        console.error("Failed to fetch verse:", err);
-        setError("An error occurred while fetching the verse.");
-      } finally {
-        setLoading(false);
+        setVerseText("Failed to load verse text.");
+        console.error("Failed to load verse text:", err);
+        setError("Failed to load verse text. Please try again.");
       }
+
+      const token = localStorage.getItem("authToken");
+      if (token) {
+        try {
+          const existingNotes = await getNotes(token, {
+            book: bookName,
+            chapter: Number(chapterNumber),
+            verse: Number(verseNumber),
+          });
+          setUserNotes(existingNotes);
+        } catch (err) {
+          console.error("Failed to fetch notes:", err);
+          setError("Failed to load your notes. Please try again.");
+        }
+      }
+      setLoading(false);
     };
 
-    fetchVerse();
+    fetchVerseAndNotes();
   }, [bookName, chapterNumber, verseNumber]);
 
-  /**
-   * Handles saving the user's note. This is a placeholder for the UI.
-   */
-  const handleSaveNote = () => {
-    const noteContent = editorRef.current?.innerHTML || "";
-    if (!noteContent.trim()) {
-      setError("Note cannot be empty.");
+  const handleAddNote = () => {
+    setIsEditing(true);
+    setCurrentNoteContent(initialValue);
+  };
+
+  const saveNote = async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      setError("Please login to save notes.");
       return;
     }
 
-    setNoteSaving(true);
-    setError(null);
+    const isEmpty = currentNoteContent.every((node) =>
+      isEmptyBlock(editor, node)
+    );
 
-    // Simulate an API call
-    setTimeout(() => {
-      setNoteSaving(false);
-      setShowModal(true); // Show success modal
-    }, 1000);
+    if (isEmpty) {
+      setError("Note is empty and cannot be saved.");
+      return;
+    }
+
+    try {
+      const newNote = await addNote(token, {
+        book: bookName as string,
+        chapter: Number(chapterNumber),
+        verse: Number(verseNumber),
+        content: JSON.stringify(currentNoteContent),
+      });
+
+      setUserNotes((prevNotes) => [...prevNotes, newNote]);
+
+      setShowSaved(true);
+      setError(null);
+      setTimeout(() => setShowSaved(false), 2000);
+      setIsEditing(false);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to save note. Please try again.");
+    }
   };
 
-  /**
-   * Toggles the bold formatting for the selected text.
-   */
-  const handleBold = () => {
-    document.execCommand("bold", false, undefined);
+  const handleDeleteNote = async (noteId: number) => {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      setError("Please login to delete notes.");
+      return;
+    }
+
+    // Add a confirmation dialog for better UX
+    if (
+      window.confirm(
+        "Are you sure you want to delete this note? This action cannot be undone."
+      )
+    ) {
+      try {
+        await deleteNote(token, noteId);
+        // Optimistically update the UI by filtering the deleted note out
+        setUserNotes((prevNotes) =>
+          prevNotes.filter((note) => note.id !== noteId)
+        );
+        setError(null); // Clear any previous errors
+      } catch (err) {
+        console.error("Failed to delete note:", err);
+        setError("Failed to delete note. Please try again.");
+      }
+    }
   };
 
-  /**
-   * Toggles the italic formatting for the selected text.
-   */
-  const handleItalic = () => {
-    document.execCommand("italic", false, undefined);
-  };
-
-  /**
-   * Toggles the underline formatting for the selected text.
-   */
-  const handleUnderline = () => {
-    document.execCommand("underline", false, undefined);
+  const getPlainText = (content: Descendant[]): string => {
+    return content.map((node) => Node.string(node)).join(" ");
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-start py-8 px-4 sm:px-6 lg:px-8">
-      {showModal && (
-        <CustomModal
-          message="Your note has been saved!"
-          onClose={() => setShowModal(false)}
-        />
+    <div className="max-w-4xl mx-auto p-8">
+      <h1 className="text-2xl font-bold mb-4">
+        {bookName} {chapterNumber}:{verseNumber}
+      </h1>
+
+      {loading ? (
+        <p>Loading verse...</p>
+      ) : (
+        <div className="p-4 bg-gray-100 rounded mb-6">{verseText}</div>
       )}
-      <div className="max-w-4xl w-full space-y-6 p-10 bg-white rounded-xl shadow-lg bg-opacity-80 backdrop-blur-sm">
-        <h1 className="text-3xl font-extrabold text-center text-blue-800 mb-4">
-          {decodeURIComponent(bookName as string)} {chapterNumber}:{verseNumber}
-        </h1>
 
-        {loading ? (
-          <p className="text-center text-gray-600 text-lg animate-pulse">
-            Loading verse...
-          </p>
-        ) : error ? (
-          <p className="text-center text-red-600 text-lg">{error}</p>
-        ) : (
-          <>
-            <div className="p-4 bg-gray-50 rounded-lg shadow-inner">
-              <p className="text-gray-800 leading-relaxed">
-                <span className="font-bold text-blue-700 mr-2">
-                  {verse?.verse_number}
-                </span>
-                {verse?.text}
-              </p>
-            </div>
+      {error && <p className="text-red-600 mb-4">{error}</p>}
 
-            <div className="mt-8">
-              <h2 className="text-2xl font-bold text-gray-700 mb-2">
-                My Notes
-              </h2>
-              <div className="p-2 border rounded-lg shadow-sm bg-white mb-2">
-                <div className="flex space-x-2">
-                  <button
-                    onClick={handleBold}
-                    className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md font-bold hover:bg-gray-300 transition-colors"
-                  >
-                    B
-                  </button>
-                  <button
-                    onClick={handleItalic}
-                    className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md italic hover:bg-gray-300 transition-colors"
-                  >
-                    I
-                  </button>
-                  <button
-                    onClick={handleUnderline}
-                    className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md underline hover:bg-gray-300 transition-colors"
-                  >
-                    U
-                  </button>
-                </div>
-              </div>
+      {!isEditing ? (
+        <>
+          <h2 className="text-xl font-semibold mb-2">My Notes</h2>
+          {userNotes.length > 0 ? (
+            userNotes.map((note) => (
               <div
-                ref={editorRef}
-                className="w-full h-48 p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 overflow-y-auto resize-none"
-                contentEditable
-              ></div>
-            </div>
-
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={handleSaveNote}
-                disabled={noteSaving}
-                className={`px-6 py-2 rounded-lg shadow transition-colors ${
-                  noteSaving
-                    ? "bg-gray-400 text-gray-700 cursor-not-allowed"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
+                key={note.id}
+                className="border p-4 mb-4 rounded shadow relative"
               >
-                {noteSaving ? "Saving..." : "Save Note"}
-              </button>
-            </div>
+                <p>{getPlainText(JSON.parse(note.content))}</p>
+                <button
+                  onClick={() => handleDeleteNote(note.id)}
+                  className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-600 rounded-full hover:bg-gray-100 transition-colors duration-200"
+                  aria-label="Delete note"
+                  title="Delete Note" // Add a title for accessibility
+                >
+                  {/* Modern Trash Can Icon (simplified SVG) */}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="w-5 h-5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M14.74 9l-.346 9m-4.788 0L9.262 9m1.26-7.236c-.198-.145-.421-.24-.654-.24H5.45c-.233 0-.456.095-.654.24a1.125 1.125 0 01-.654 1.045L4 4.75a.75.75 0 000 1.5l.096-.035c.198-.073.398-.11.604-.11h11.8c.206 0 .406.037.604.11L20 6.25a.75.75 0 000-1.5l-.096-.035a1.125 1.125 0 01-.654-1.045c-.198-.145-.421-.24-.654-.24H9.45c-.233 0-.456.095-.654.24a1.125 1.125 0 01-.654 1.045L7.4 4.75a.75.75 0 000 1.5l.096-.035c.198-.073.398-.11.604-.11h-.35a1.125 1.125 0 01-1.045-.654zM3.5 12V6.75a1.5 1.5 0 01-1.5-1.5v-1.5c0-.828.672-1.5 1.5-1.5H7.5a1.5 1.5 0 011.5 1.5v1.5c0 .828-.672 1.5-1.5 1.5h-2.5V12h6.5v-1.5a1.5 1.5 0 011.5-1.5h2.5a1.5 1.5 0 011.5 1.5v1.5c0 .828-.672 1.5-1.5 1.5H16.5v6.75a1.5 1.5 0 01-1.5 1.5H8.25a1.5 1.5 0 01-1.5-1.5V12H3.5z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M14.74 9l-.346 9m-4.788 0L9.262 9M7.5 4.5h.35c.233 0 .456.095.654.24a1.125 1.125 0 01.654 1.045l1.066.38a.75.75 0 000 1.458l-1.066.38c-.198.145-.421.24-.654.24H7.5a1.5 1.5 0 01-1.5-1.5v-1.5c0-.828.672-1.5 1.5-1.5zM16.5 4.5h-.35c-.233 0-.456.095-.654.24a1.125 1.125 0 00-.654 1.045l-1.066.38a.75.75 0 000 1.458l1.066.38c.198.145.421.24.654.24h.35a1.5 1.5 0 001.5-1.5v-1.5c0-.828-.672-1.5-1.5-1.5zM12 18.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ))
+          ) : (
+            <p className="text-gray-500 mb-4">
+              You have no notes for this verse yet.
+            </p>
+          )}
+          <button
+            onClick={handleAddNote}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Add a Note
+          </button>
+        </>
+      ) : (
+        <>
+          <h2 className="text-xl font-semibold mb-2">Create a New Note</h2>
+          <div className="flex space-x-2 mb-2">
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleFormat("bold");
+              }}
+              className="px-2 py-1 font-bold border rounded"
+            >
+              B
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleFormat("italic");
+              }}
+              className="px-2 py-1 italic border rounded"
+            >
+              I
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleFormat("underline");
+              }}
+              className="px-2 py-1 underline border rounded"
+            >
+              U
+            </button>
+          </div>
 
-            <div className="mt-6 text-center">
-              <Link
-                href={`/books/${bookName}/${chapterNumber}`}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition-colors"
-              >
-                ← Back to Chapter
-              </Link>
-            </div>
-          </>
-        )}
-      </div>
+          <Slate
+            editor={editor}
+            initialValue={currentNoteContent}
+            onChange={(value) => setCurrentNoteContent(value)}
+          >
+            <Editable
+              className="border p-4 min-h-[200px] rounded"
+              renderLeaf={renderLeaf}
+            />
+          </Slate>
+
+          <button
+            onClick={saveNote}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Save Note
+          </button>
+          {showSaved && <p className="text-green-600 mt-2">Note saved!</p>}
+        </>
+      )}
     </div>
   );
 };

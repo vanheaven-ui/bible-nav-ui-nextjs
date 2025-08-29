@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { fetchVerseOfTheDay } from "../lib/bibleApi";
 import { useAuthStore } from "../store/authStore";
+import { useVerseStore } from "../store/verseStore"; // Import the new store
 
 interface VerseData {
   text: string;
@@ -17,6 +18,7 @@ const HomePage: React.FC = () => {
   const [verseError, setVerseError] = useState<string | null>(null);
 
   const { isAuthenticated } = useAuthStore();
+  const { setLastUpdated, clearNewVerse } = useVerseStore(); // Get actions from the verse store
 
   useEffect(() => {
     const getVerse = async () => {
@@ -29,6 +31,10 @@ const HomePage: React.FC = () => {
           reference: data.verse.details.reference,
           version: data.verse.details.version,
         });
+
+        // Use the current date as the key to check for a new verse
+        const today = new Date().toISOString().split("T")[0];
+        setLastUpdated(today); // Update the store with today's date
       } else {
         setVerseError(
           "Failed to load Verse of the Day. Please try again later."
@@ -38,7 +44,8 @@ const HomePage: React.FC = () => {
     };
 
     getVerse();
-  }, []);
+    clearNewVerse(); // Clear the notification when the user lands on the homepage
+  }, [setLastUpdated, clearNewVerse]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 text-gray-800">
@@ -83,35 +90,54 @@ const HomePage: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <p className="text-gray-500">
-                No verse available today.
-              </p>
+              <p className="text-gray-500">No verse available today.</p>
             )}
           </div>
         </section>
         {/* Feature Cards */}
         <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-          <Link href="/books" className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-blue-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer">
+          <Link
+            href="/books"
+            className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-blue-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
+          >
             <h3 className="text-2xl font-bold text-blue-700 group-hover:text-blue-800 transition-colors">
               Explore Books
-              <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">→</span>
+              <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
+                →
+              </span>
             </h3>
-            <p className="mt-2 text-gray-600">Find any book, chapter, or verse with ease.</p>
+            <p className="mt-2 text-gray-600">
+              Find any book, chapter, or verse with ease.
+            </p>
           </Link>
-          <Link href="/favorites" className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-yellow-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer">
+          <Link
+            href="/favorites"
+            className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-yellow-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
+          >
             <h3 className="text-2xl font-bold text-yellow-600 group-hover:text-yellow-700 transition-colors">
               Manage Favorites
-              <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">→</span>
+              <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
+                →
+              </span>
             </h3>
-            <p className="mt-2 text-gray-600">Keep track of your most cherished verses and revisit them anytime.</p>
+            <p className="mt-2 text-gray-600">
+              Keep track of your most cherished verses and revisit them anytime.
+            </p>
           </Link>
           {isAuthenticated && (
-            <Link href="/search" className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-green-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer">
+            <Link
+              href="/search"
+              className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-green-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
+            >
               <h3 className="text-2xl font-bold text-green-700 group-hover:text-green-800 transition-colors">
                 Quick Search
-                <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">→</span>
+                <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
+                  →
+                </span>
               </h3>
-              <p className="mt-2 text-gray-600">Find a specific verse or passage quickly.</p>
+              <p className="mt-2 text-gray-600">
+                Find a specific verse or passage quickly.
+              </p>
             </Link>
           )}
         </div>

@@ -24,7 +24,7 @@ export interface BibleBook {
   chapters: number;
 }
 
-// Favorite verse type (kept same as before)
+// Favorite verse type
 export interface FavoriteVerse {
   id: number;
   user_id: number;
@@ -35,7 +35,18 @@ export interface FavoriteVerse {
   created_at: string;
 }
 
-// User type for login
+// Note type
+export interface Note {
+  id: number;
+  user_id: number;
+  book: string;
+  chapter: number;
+  verse: number;
+  content: string;
+  created_at: string;
+}
+
+// User type for login and signup
 export interface User {
   id: number;
   username: string;
@@ -43,8 +54,8 @@ export interface User {
   created_at?: string;
 }
 
-// Login response type
-export interface LoginResponse {
+// Login and Signup response type
+export interface AuthResponse {
   token: string;
   user: User;
 }
@@ -76,12 +87,26 @@ async function makeBackendApiRequest<T>(
   try {
     const response = await fetch(`${BACKEND_API_BASE_URL}${endpoint}`, config);
 
+    // Read response as text first
+    const text = await response.text();
+
+    // Try to parse as JSON
+    let data: T | ErrorResponse;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error(`Non-JSON response from ${endpoint}:`, text);
+      throw new Error(
+        `Expected JSON but received non-JSON response from ${endpoint}`
+      );
+    }
+
     if (!response.ok) {
-      const errorData: ErrorResponse = await response.json();
+      const errorData = data as ErrorResponse;
       throw new Error(errorData.message || `API Error: ${response.status}`);
     }
 
-    return response.json();
+    return data as T;
   } catch (err: unknown) {
     console.error(`Error making request to ${endpoint}:`, err);
     if (err instanceof Error) throw err;
@@ -93,45 +118,49 @@ async function makeBackendApiRequest<T>(
 // ---------- 🔹 Authentication API Functions ----------
 //
 
-/**
- * Logs a user in and returns a token and user details.
- * @param email - The user's email.
- * @param password - The user's password.
- */
-export async function loginUser(email: string, password: string): Promise<LoginResponse> {
-  return makeBackendApiRequest<LoginResponse>(
-    "/auth/login",
-    "POST",
-    { email, password }
-  );
+export async function loginUser(
+  email: string,
+  password: string
+): Promise<AuthResponse> {
+  return makeBackendApiRequest<AuthResponse>("/auth/login", "POST", {
+    email,
+    password,
+  });
+}
+
+export async function signupUser(
+  username: string,
+  email: string,
+  password: string
+): Promise<AuthResponse> {
+  return makeBackendApiRequest<AuthResponse>("/auth/signup", "POST", {
+    username,
+    email,
+    password,
+  });
 }
 
 //
 // ---------- 🔹 Bible API Functions ----------
 //
 
-/**
- * Fetch all Bible books (name + chapters).
- */
 export async function fetchBibleBooks(): Promise<BibleBook[]> {
   return makeBackendApiRequest<BibleBook[]>("/bible/books");
 }
 
-/**
- * Fetch all verses of a given book + chapter.
- * @param bookName - Name of the book, e.g. "Genesis"
- * @param chapter - Chapter number
- */
 export async function fetchChapterVerses(
   bookName: string,
   chapter: number
 ): Promise<Verse[]> {
+  // Use encodeURIComponent once, do not double-encode
   return makeBackendApiRequest<Verse[]>(
     `/bible/books/${encodeURIComponent(bookName)}/chapters/${chapter}`
   );
 }
 
-// ---------- 🔹 Favorite Verses API  ----------
+//
+// ---------- 🔹 Favorite Verses API ----------
+//
 
 export async function addFavoriteVerse(
   token: string,
@@ -162,6 +191,42 @@ export async function deleteFavoriteVerse(
 ): Promise<{ message: string }> {
   return makeBackendApiRequest<{ message: string }>(
     `/verses/favorites/${verseId}`,
+    "DELETE",
+    undefined,
+    token
+  );
+}
+
+//
+// ---------- 🔹 Notes API Functions ----------
+//
+
+export async function addNote(
+  token: string,
+  noteDetails: Omit<Note, "id" | "user_id" | "created_at">
+): Promise<Note> {
+  return makeBackendApiRequest<Note>("/notes", "POST", noteDetails, token);
+}
+
+export async function getNotes(
+  token: string,
+  filters?: { book?: string; chapter?: number; verse?: number }
+): Promise<Note[]> {
+  const query = new URLSearchParams();
+  if (filters?.book) query.append("book", filters.book);
+  if (filters?.chapter) query.append("chapter", filters.chapter.toString());
+  if (filters?.verse) query.append("verse", filters.verse.toString());
+
+  const endpoint = `/notes${query.toString() ? `?${query.toString()}` : ""}`;
+  return makeBackendApiRequest<Note[]>(endpoint, "GET", undefined, token);
+}
+
+export async function deleteNote(
+  token: string,
+  noteId: number
+): Promise<{ message: string }> {
+  return makeBackendApiRequest<{ message: string }>(
+    `/notes/${noteId}`,
     "DELETE",
     undefined,
     token
