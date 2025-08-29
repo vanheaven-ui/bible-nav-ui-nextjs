@@ -88,6 +88,18 @@ interface BibleApiChapterResponse {
   }[];
 }
 
+// New interface for the backup API response
+interface SuperSearchChapterApiResponse {
+  results: {
+    verses: {
+      verse_id: string;
+      verse: number;
+      text: string;
+      chapter_id: string;
+    }[];
+  };
+}
+
 interface BibleApiSearchResponse {
   verses: {
     book_name: string;
@@ -125,7 +137,7 @@ async function fetchJson<T>(
     const response = await fetch(url);
     if (!response.ok) {
       console.error(`Fetch error: ${response.status} ${response.statusText}`);
-      return null;
+      throw new Error("Failed to fetch data.");
     }
     const data = (await response.json()) as T;
 
@@ -134,9 +146,79 @@ async function fetchJson<T>(
     return data;
   } catch (error) {
     console.error("Network error:", error);
-    return null;
+    throw error;
   }
 }
+
+// ---------- Static Book Name Mapping ----------
+const bookShortNames: Record<string, string> = {
+  Genesis: "Gen",
+  Exodus: "Exo",
+  Leviticus: "Lev",
+  Numbers: "Num",
+  Deuteronomy: "Deu",
+  Joshua: "Jos",
+  Judges: "Jdg",
+  Ruth: "Rth",
+  "1 Samuel": "1Sa",
+  "2 Samuel": "2Sa",
+  "1 Kings": "1Ki",
+  "2 Kings": "2Ki",
+  "1 Chronicles": "1Ch",
+  "2 Chronicles": "2Ch",
+  Ezra: "Ezr",
+  Nehemiah: "Neh",
+  Esther: "Est",
+  Job: "Job",
+  Psalms: "Psa",
+  Proverbs: "Pro",
+  Ecclesiastes: "Ecc",
+  "Song of Solomon": "SoS",
+  Isaiah: "Isa",
+  Jeremiah: "Jer",
+  Lamentations: "Lam",
+  Ezekiel: "Eze",
+  Daniel: "Dan",
+  Hosea: "Hos",
+  Joel: "Joe",
+  Amos: "Amo",
+  Obadiah: "Oba",
+  Jonah: "Jon",
+  Micah: "Mic",
+  Nahum: "Nah",
+  Habakkuk: "Hab",
+  Zephaniah: "Zep",
+  Haggai: "Hag",
+  Zechariah: "Zec",
+  Malachi: "Mal",
+  Matthew: "Mat",
+  Mark: "Mar",
+  Luke: "Luk",
+  John: "Joh",
+  Acts: "Act",
+  Romans: "Rom",
+  "1 Corinthians": "1Co",
+  "2 Corinthians": "2Co",
+  Galatians: "Gal",
+  Ephesians: "Eph",
+  Philippians: "Php",
+  Colossians: "Col",
+  "1 Thessalonians": "1Th",
+  "2 Thessalonians": "2Th",
+  "1 Timothy": "1Ti",
+  "2 Timothy": "2Ti",
+  Titus: "Tit",
+  Philemon: "Phm",
+  Hebrews: "Heb",
+  James: "Jam",
+  "1 Peter": "1Pe",
+  "2 Peter": "2Pe",
+  "1 John": "1Jo",
+  "2 John": "2Jo",
+  "3 John": "3Jo",
+  Jude: "Jud",
+  Revelation: "Rev",
+};
 
 // ---------- API Functions ----------
 
@@ -190,19 +272,49 @@ export async function fetchBibleChapter(
   version: string = "web"
 ): Promise<BibleChapter | null> {
   const encodedBook = encodeURIComponent(book);
-  const url = `${BIBLE_API_BASE_URL}${encodedBook}+${chapter}?translation=${version}`;
-  const data = await fetchJson<BibleApiChapterResponse>(url);
 
-  if (data?.verses && data.verses.length > 0) {
-    const chapterData = data.verses[0];
-    return {
-      chapter: chapterData.chapter,
-      verses: data.verses.map((v) => ({
-        verse: v.verse,
-        text: v.text,
-      })),
-    };
+  // 1. Try Primary API (bible-api.com)
+  try {
+    const primaryUrl = `${BIBLE_API_BASE_URL}${encodedBook}+${chapter}?translation=${version}`;
+    const data = await fetchJson<BibleApiChapterResponse>(primaryUrl);
+
+    if (data?.verses && data.verses.length > 0) {
+      return {
+        chapter: chapter,
+        verses: data.verses.map((v) => ({
+          verse: v.verse,
+          text: v.text,
+        })),
+      };
+    }
+  } catch (primaryError) {
+    console.warn("Primary API failed, trying backup API...", primaryError);
   }
+
+  // 2. Try Backup API (biblesupersearch.com) using static mapping
+  try {
+    const shortBookName = bookShortNames[book];
+    if (!shortBookName) {
+      throw new Error(`Could not find short name for book: ${book}`);
+    }
+
+    const encodedShortName = encodeURIComponent(shortBookName);
+    const backupUrl = `${BIBLE_SUPERSEARCH_API_BASE_URL}verses?bible=web&book_name=${encodedShortName}&chapter=${chapter}`;
+    const data = await fetchJson<SuperSearchChapterApiResponse>(backupUrl);
+
+    if (data?.results?.verses && data.results.verses.length > 0) {
+      return {
+        chapter: chapter,
+        verses: data.results.verses.map((v) => ({
+          verse: v.verse,
+          text: v.text,
+        })),
+      };
+    }
+  } catch (backupError) {
+    console.error("Both primary and backup APIs failed.", backupError);
+  }
+
   return null;
 }
 

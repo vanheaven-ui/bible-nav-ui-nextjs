@@ -157,6 +157,12 @@ const VerseNotePage: React.FC = () => {
     setCurrentNoteContent(initialValue);
   };
 
+  const handleCancel = () => {
+    setIsEditing(false); // Hide the editor
+    setCurrentNoteContent(initialValue); // Reset the content
+    setError(null); // Clear any errors
+  };
+
   const saveNote = async () => {
     const token = localStorage.getItem("authToken");
     if (!token) {
@@ -186,7 +192,7 @@ const VerseNotePage: React.FC = () => {
       setShowSaved(true);
       setError(null);
       setTimeout(() => setShowSaved(false), 2000);
-      setIsEditing(false);
+      setIsEditing(false); // Exit editing mode after saving
     } catch (err) {
       console.error(err);
       setError("Failed to save note. Please try again.");
@@ -271,7 +277,7 @@ const VerseNotePage: React.FC = () => {
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      d="M14.74 9l-.346 9m-4.788 0L9.262 9M7.5 4.5h.35c.233 0 .456.095.654.24a1.125 1.125 0 01.654 1.045l1.066.38a.75.75 0 000 1.458l-1.066.38c-.198.145-.421.24-.654.24H7.5a1.5 1.5 0 01-1.5-1.5v-1.5c0-.828.672-1.5 1.5-1.5zM16.5 4.5h-.35c-.233 0-.456.095-.654.24a1.125 1.125 0 00-.654 1.045l-1.066.38a.75.75 0 000 1.458l1.066.38c.198.145.421.24.654.24h.35a1.5 1.5 0 001.5-1.5v-1.5c0-.828-.672-1.5-1.5-1.5zM12 18.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                      d="M14.74 9l-.346 9m-4.788 0L9.262 9M7.5 4.5h.35c.233 0 .456.095.654.24a1.125 1.125 0 01.654 1.045l1.066.38a.75.75 0 000 1.458l-1.066.38c.198.145-.421.24-.654.24H7.5a1.5 1.5 0 01-1.5-1.5v-1.5c0-.828.672-1.5 1.5-1.5zM16.5 4.5h-.35c-.233 0-.456.095-.654.24a1.125 1.125 0 00-.654 1.045l-1.066.38a.75.75 0 000 1.458l1.066.38c.198.145.421.24.654.24h.35a1.5 1.5 0 001.5-1.5v-1.5c0-.828-.672-1.5-1.5-1.5zM12 18.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
                       clipRule="evenodd"
                     />
                   </svg>
@@ -334,12 +340,20 @@ const VerseNotePage: React.FC = () => {
             />
           </Slate>
 
-          <button
-            onClick={saveNote}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Save Note
-          </button>
+          <div className="flex justify-end mt-4 space-x-2">
+            <button
+              onClick={handleCancel}
+              className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveNote}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Save Note
+            </button>
+          </div>
           {showSaved && <p className="text-green-600 mt-2">Note saved!</p>}
         </>
       )}
