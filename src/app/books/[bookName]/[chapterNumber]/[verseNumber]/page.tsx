@@ -10,7 +10,7 @@ import {
   BaseText,
   Node,
 } from "slate";
-import { Slate, Editable, withReact } from "slate-react";
+import { Slate, Editable, withReact, RenderLeafProps } from "slate-react";
 import { withHistory } from "slate-history";
 import { useParams } from "next/navigation";
 import { addNote, getNotes, deleteNote, type Note } from "@/lib/backendApi";
@@ -72,23 +72,15 @@ const VerseNotePage: React.FC = () => {
   );
 
   const renderLeaf = useCallback(
-    ({
-      attributes,
-      children,
-      leaf,
-    }: {
-      attributes: any;
-      children: React.ReactNode;
-      leaf: CustomText;
-    }) => {
+    ({ attributes, children, leaf }: RenderLeafProps) => {
       let newChildren: React.ReactNode = children;
-      if (leaf.bold) {
+      if ((leaf as CustomText).bold) {
         newChildren = <strong>{newChildren}</strong>;
       }
-      if (leaf.italic) {
+      if ((leaf as CustomText).italic) {
         newChildren = <em>{newChildren}</em>;
       }
-      if (leaf.underline) {
+      if ((leaf as CustomText).underline) {
         newChildren = <u>{newChildren}</u>;
       }
       return <span {...attributes}>{newChildren}</span>;
