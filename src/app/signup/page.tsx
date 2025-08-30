@@ -1,13 +1,10 @@
-// src/app/signup/page.tsx
-// This page provides a form for new users to sign up.
-
-"use client"; // This component uses client-side hooks like useState, useEffect, useRouter
+"use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation"; // For navigation in App Router
-import Link from "next/link"; // For linking to other pages
-import { signupUser } from "../../lib/backendApi"; // Import the backend API utility
-import { useAuthStore } from "../../store/authStore"; // Import the Zustand auth store
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import * as api from "@/lib/backendApi";
+import { useAuthStore } from "../../store/authStore";
 
 const SignupPage: React.FC = () => {
   const [username, setUsername] = useState<string>("");
@@ -16,9 +13,9 @@ const SignupPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const { setAuth } = useAuthStore(); // Get the setAuth function from Zustand
+  const { setAuth } = useAuthStore();
 
-  const router = useRouter(); // Initialize Next.js router
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,9 +29,9 @@ const SignupPage: React.FC = () => {
     }
 
     try {
-      const data = await signupUser(username, email, password);
-      setAuth(data.token, data.user); // Store auth info in Zustand
-      router.push("/"); // Redirect to homepage on successful signup
+      const data = await api.signupUser(username, email, password);
+      setAuth(data.token, data.user);
+      router.push("/");
     } catch (err: unknown) {
       console.error("Signup failed:", err);
       if (err instanceof Error) {
@@ -49,7 +46,6 @@ const SignupPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 items-center justify-center">
-      {/* Added bg-opacity-80 and backdrop-blur-sm for transparency */}
       <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-lg bg-opacity-80 backdrop-blur-sm">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">

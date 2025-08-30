@@ -1,14 +1,13 @@
-// src/app/books/page.tsx
-// This page displays a list of all Bible books.
+"use client";
 
-"use client"; // This component uses client-side hooks
+import React, { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
+import { fetchBibleBooks, SuperSearchBibleBook } from "../../lib/bibleApi";
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link"; // For linking to individual book pages (future feature)
-import { fetchBibleBooks } from "../../lib/bibleApi"; // Import the API utility
+const OLD_TESTAMENT_COUNT = 39;
 
 const BooksPage: React.FC = () => {
-  const [books, setBooks] = useState<string[]>([]);
+  const [books, setBooks] = useState<SuperSearchBibleBook[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +37,34 @@ const BooksPage: React.FC = () => {
     };
 
     getBooks();
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
+
+  // Memoize the filtered book lists to avoid re-calculating on every render
+  const oldTestamentBooks = useMemo(
+    () => books.filter((book) => book.id <= OLD_TESTAMENT_COUNT),
+    [books]
+  );
+  const newTestamentBooks = useMemo(
+    () => books.filter((book) => book.id > OLD_TESTAMENT_COUNT),
+    [books]
+  );
+
+  const renderBookGrid = (bookList: SuperSearchBibleBook[]) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      {bookList.map((book) => (
+        <Link
+          key={book.id}
+          href={`/books/${encodeURIComponent(book.name)}`}
+          className="flex flex-col items-center justify-center p-4 bg-blue-100 rounded-lg shadow-md hover:bg-blue-200 transition-colors duration-200 text-center text-blue-800 font-semibold text-lg h-24"
+        >
+          <span className="text-xl font-bold">{book.name}</span>
+          <span className="text-sm text-gray-600 mt-1">
+            {book.chapters} Chapters
+          </span>
+        </Link>
+      ))}
+    </div>
+  );
 
   return (
     <div className="flex-1 flex flex-col items-center justify-start py-8 px-4 sm:px-6 lg:px-8">
@@ -58,17 +84,17 @@ const BooksPage: React.FC = () => {
             No books available at this time.
           </p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {books.map((bookName) => (
-              <Link
-                key={bookName}
-                href={`/books/${encodeURIComponent(bookName)}`} // Future: Link to a specific book's chapters
-                className="p-4 bg-blue-100 rounded-lg shadow-md hover:bg-blue-200 transition-colors duration-200 text-center text-blue-800 font-semibold text-lg flex items-center justify-center h-24"
-              >
-                {bookName}
-              </Link>
-            ))}
-          </div>
+          <>
+            <h2 className="text-3xl font-bold text-center text-blue-700 mt-8 mb-4">
+              Old Testament
+            </h2>
+            {renderBookGrid(oldTestamentBooks)}
+
+            <h2 className="text-3xl font-bold text-center text-blue-700 mt-8 mb-4">
+              New Testament
+            </h2>
+            {renderBookGrid(newTestamentBooks)}
+          </>
         )}
       </div>
     </div>

@@ -1,13 +1,10 @@
-// src/app/login/page.tsx
-// This page provides a form for existing users to log in.
-
-"use client"; // This component uses client-side hooks like useState, useEffect, useRouter
+"use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation"; // For navigation in App Router
-import Link from "next/link"; // For linking to other pages
-import { loginUser } from "../../lib/backendApi"; // Import the backend API utility
-import { useAuthStore } from "../../store/authStore"; // Import the Zustand auth store
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { loginUser } from "../../lib/backendApi";
+import { useAuthStore } from "../../store/authStore";
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState<string>("");
@@ -41,7 +38,6 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 items-center justify-center">
-      {/* Added bg-opacity-80 and backdrop-blur-sm for transparency */}
       <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-lg bg-opacity-80 backdrop-blur-sm">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">

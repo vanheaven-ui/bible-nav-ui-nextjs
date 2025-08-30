@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Global styles here */
+/* Global styles */
 html,
 body {
   font-family: "Inter", sans-serif;

@@ -9,9 +9,15 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "axios": "^1.11.0",
+    "lucide-react": "^0.542.0",
     "next": "15.4.4",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-tooltip": "^5.29.1",
+    "slate": "^0.118.1",
+    "slate-history": "^0.113.1",
+    "slate-react": "^0.117.4",
     "zustand": "^5.0.6"
   },
   "devDependencies": {

@@ -1,11 +1,10 @@
-// src/app/page.tsx
-// This is the main homepage of your Bible Nav application using the App Router.
+"use client";
 
-"use client"; // This component uses client-side hooks like useState, useEffect, useRouter
 import React, { useState, useEffect } from "react";
-import Link from "next/link"; // Import Link for navigation
+import Link from "next/link";
 import { fetchVerseOfTheDay } from "../lib/bibleApi";
-import { useAuthStore } from "../store/authStore"; // Import the Zustand auth store
+import { useAuthStore } from "../store/authStore";
+import { useVerseStore } from "../store/verseStore"; // Import the new store
 
 interface VerseData {
   text: string;
@@ -18,7 +17,8 @@ const HomePage: React.FC = () => {
   const [loadingVerse, setLoadingVerse] = useState<boolean>(true);
   const [verseError, setVerseError] = useState<string | null>(null);
 
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
+  const { setLastUpdated, clearNewVerse } = useVerseStore(); // Get actions from the verse store
 
   useEffect(() => {
     const getVerse = async () => {
@@ -31,6 +31,10 @@ const HomePage: React.FC = () => {
           reference: data.verse.details.reference,
           version: data.verse.details.version,
         });
+
+        // Use the current date as the key to check for a new verse
+        const today = new Date().toISOString().split("T")[0];
+        setLastUpdated(today); // Update the store with today's date
       } else {
         setVerseError(
           "Failed to load Verse of the Day. Please try again later."
@@ -40,89 +44,102 @@ const HomePage: React.FC = () => {
     };
 
     getVerse();
-  }, []); // Empty dependency array means this runs once on mount
+    clearNewVerse(); // Clear the notification when the user lands on the homepage
+  }, [setLastUpdated, clearNewVerse]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-between">
-      {/* Header/Navigation is now handled by src/app/layout.tsx */}
-
-      <main className="flex flex-col items-center justify-center flex-1 w-full px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-5xl sm:text-6xl font-extrabold text-blue-800 leading-tight animate-fade-in-down">
-          Welcome to <span className="text-yellow-600">Bible Nav</span>!
-        </h1>
-
-        <p className="mt-4 text-xl sm:text-2xl text-gray-700 animate-fade-in-up">
-          Your journey through the scriptures begins here.
-        </p>
-
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 text-gray-800">
+      <main className="w-full max-w-5xl flex flex-col items-center">
+        <header className="text-center mb-12">
+          <h1 className="text-6xl sm:text-7xl font-extrabold text-blue-900 drop-shadow-md">
+            Welcome to <span className="text-amber-500">Bible Nav</span>
+          </h1>
+          <p className="mt-3 text-xl md:text-2xl text-gray-600 font-light">
+            Your journey through the scriptures begins here.
+          </p>
+        </header>
         {/* Verse of the Day Section */}
-        <section className="mt-12 p-8 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl shadow-xl max-w-xl w-full text-center border border-blue-200 animate-fade-in">
-          <h2 className="text-2xl font-bold text-blue-700 mb-4 flex items-center justify-center gap-2">
+        <section className="bg-white p-8 md:p-10 rounded-3xl shadow-2xl ring-4 ring-blue-100 ring-opacity-50 w-full max-w-xl text-center transition-all duration-500 hover:scale-[1.02] transform">
+          <h2 className="text-3xl font-bold text-blue-700 mb-5 flex items-center justify-center gap-3">
             <svg
-              xmlns="http://www.w3.org/2500/svg"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
               viewBox="0 0 24 24"
-              fill="currentColor"
-              className="w-7 h-7 text-yellow-600"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-8 h-8 text-amber-500"
             >
               <path
-                fillRule="evenodd"
-                d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6a.75.75 0 0 0 .054.24l2.25 2.815a.75.75 0 1 0 1.196-.952L13.5 11.25V6Z"
-                clipRule="evenodd"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
               />
             </svg>
             Verse of the Day
           </h2>
-          {loadingVerse ? (
-            <p className="text-lg italic text-gray-600">Loading verse...</p>
-          ) : verseError ? (
-            <p className="text-lg italic text-red-500">{verseError}</p>
-          ) : verseOfTheDay ? (
-            <>
-              <p className="text-lg italic text-gray-800 leading-relaxed">
-                &quot;{verseOfTheDay.text}&quot;
-              </p>
-              <p className="text-sm text-gray-600 mt-3">
-                - {verseOfTheDay.reference} ({verseOfTheDay.version})
-              </p>
-            </>
-          ) : (
-            <p className="text-lg italic text-gray-600">
-              No verse available today.
-            </p>
-          )}
+          <div className="font-serif text-lg md:text-xl italic text-gray-800 leading-relaxed min-h-[8rem] flex items-center justify-center">
+            {loadingVerse ? (
+              <p className="text-gray-500">Loading verse...</p>
+            ) : verseError ? (
+              <p className="text-red-500">{verseError}</p>
+            ) : verseOfTheDay ? (
+              <div>
+                <p>&quot;{verseOfTheDay.text}&quot;</p>
+                <p className="mt-4 text-sm font-sans text-gray-500 not-italic">
+                  - {verseOfTheDay.reference} ({verseOfTheDay.version})
+                </p>
+              </div>
+            ) : (
+              <p className="text-gray-500">No verse available today.</p>
+            )}
+          </div>
         </section>
-
         {/* Feature Cards */}
-        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
           <Link
             href="/books"
-            className="group p-8 bg-white rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl hover:border-blue-300 transition-all duration-300 transform hover:-translate-y-1"
+            className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-blue-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
           >
             <h3 className="text-2xl font-bold text-blue-700 group-hover:text-blue-800 transition-colors">
-              Explore Books{" "}
-              <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-                &rarr;
+              Explore Books
+              <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
+                →
               </span>
             </h3>
-            <p className="mt-4 text-lg text-gray-600">
-              Find any book, chapter, or verse in the Bible with ease.
+            <p className="mt-2 text-gray-600">
+              Find any book, chapter, or verse with ease.
             </p>
           </Link>
-
           <Link
             href="/favorites"
-            className="group p-8 bg-white rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl hover:border-yellow-300 transition-all duration-300 transform hover:-translate-y-1"
+            className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-yellow-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
           >
             <h3 className="text-2xl font-bold text-yellow-600 group-hover:text-yellow-700 transition-colors">
-              Manage Favorites{" "}
-              <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-                &rarr;
+              Manage Favorites
+              <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
+                →
               </span>
             </h3>
-            <p className="mt-4 text-lg text-gray-600">
+            <p className="mt-2 text-gray-600">
               Keep track of your most cherished verses and revisit them anytime.
             </p>
           </Link>
+          {isAuthenticated && (
+            <Link
+              href="/search"
+              className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-green-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
+            >
+              <h3 className="text-2xl font-bold text-green-700 group-hover:text-green-800 transition-colors">
+                Quick Search
+                <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
+                  →
+                </span>
+              </h3>
+              <p className="mt-2 text-gray-600">
+                Find a specific verse or passage quickly.
+              </p>
+            </Link>
+          )}
         </div>
       </main>
     </div>
