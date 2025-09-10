@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "../../store/authStore";
 import { getFavoriteVerses, deleteFavoriteVerse } from "../../lib/backendApi";
-import Link from "next/link"; // Import Link component
+import Link from "next/link";
+import { Heart, XCircle, Loader2 } from "lucide-react";
 
 interface FavoriteVerse {
   id: number;
@@ -25,21 +26,18 @@ const FavoritesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [deleteLoadingId, setDeleteLoadingId] = useState<number | null>(null);
 
-  // Redirect if not authenticated
   useEffect(() => {
-    if (!isAuthenticated && !token) {
+    if (!isAuthenticated) {
       router.push("/login");
     }
-  }, [isAuthenticated, token, router]);
+  }, [isAuthenticated, router]);
 
-  // Fetch favorite verses
   useEffect(() => {
     const fetchFavorites = async () => {
       if (!token) {
         setLoading(false);
         return;
       }
-
       setLoading(true);
       setError(null);
       try {
@@ -47,18 +45,13 @@ const FavoritesPage: React.FC = () => {
         setFavoriteVerses(response.verses);
       } catch (err: unknown) {
         console.error("Failed to fetch favorite verses:", err);
-        if (err instanceof Error) {
-          setError(err.message || "Failed to load favorite verses.");
-        } else {
-          setError("An unknown error occurred while loading favorites.");
-        }
+        setError("Failed to load favorite verses. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchFavorites();
-  }, [token]); // Re-fetch when token changes
+  }, [token]);
 
   const handleDelete = async (verseId: number) => {
     if (!token) {
@@ -70,84 +63,119 @@ const FavoritesPage: React.FC = () => {
     setError(null);
     try {
       await deleteFavoriteVerse(token, verseId);
-      // Optimistically update the UI
-      setFavoriteVerses((prevVerses) =>
-        prevVerses.filter((verse) => verse.id !== verseId)
-      );
+      setFavoriteVerses((prev) => prev.filter((v) => v.id !== verseId));
     } catch (err: unknown) {
       console.error("Failed to delete favorite verse:", err);
-      if (err instanceof Error) {
-        setError(err.message || "Failed to delete favorite verse.");
-      } else {
-        setError("An unknown error occurred while deleting the verse.");
-      }
+      setError("Failed to delete favorite verse. Please try again.");
     } finally {
       setDeleteLoadingId(null);
     }
   };
 
-  if (!isAuthenticated && !loading) {
-    return null;
-  }
-
   return (
-    <div className="flex-1 flex flex-col items-center justify-start py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl w-full space-y-8 p-10 bg-white rounded-xl shadow-lg bg-opacity-80 backdrop-blur-sm">
-        <h1 className="text-4xl font-extrabold text-center text-blue-800 mb-8">
-          Your Favorite Verses
-        </h1>
+    <div className="relative min-h-screen flex flex-col overflow-hidden text-[#2d2a26]">
+      {/* Background Image and Overlay */}
+      <div
+        className="absolute inset-0 -z-20 bg-cover bg-center"
+        style={{ backgroundImage: "url('/images/parchment-bg.jpg')" }}
+      />
+      <div className="absolute inset-0 -z-10 bg-[#f9f5e7]/85" />
 
-        {loading ? (
-          <p className="text-center text-gray-600 text-lg">
-            Loading your favorite verses...
+      {/* Sacred Glow */}
+      <div className="absolute inset-0 -z-0">
+        <div className="absolute top-1/4 left-1/3 w-[30vw] h-[30vw] rounded-full bg-[#d4af37]/25 blur-[120px]"></div>
+        <div className="absolute bottom-1/4 right-1/3 w-[35vw] h-[35vw] rounded-full bg-[#a4161a]/25 blur-[150px]"></div>
+      </div>
+
+      {/* Main Container */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 px-6 sm:px-10 lg:px-16 py-20 items-start">
+        {/* Left side: Heading */}
+        <header className="text-left space-y-6 lg:sticky lg:top-20">
+          <h1 className="text-4xl sm:text-6xl font-extrabold text-[#6b705c] leading-tight">
+            Treasured <span className="text-[#a4161a]">Verses</span>
+          </h1>
+          <p className="text-lg sm:text-xl font-light text-[#495057] max-w-lg">
+            A collection of scriptures you have marked as a source of
+            inspiration and guidance.
           </p>
-        ) : error ? (
-          <p className="text-center text-red-600 text-lg">{error}</p>
-        ) : favoriteVerses.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center space-y-6 p-8">
-            <h2 className="text-2xl font-bold text-gray-700">
-              Your favorites list is empty.
-            </h2>
-            <p className="text-gray-600 max-w-sm">
-              Start your journey through the scriptures and add verses to your
-              favorites.
-            </p>
-            <Link
-              href="/books"
-              className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors transform hover:scale-105"
-            >
-              Start Exploring! 📖
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6">
-            {favoriteVerses.map((verse) => (
-              <div
-                key={verse.id}
-                className="p-6 bg-blue-50 rounded-lg shadow-md border border-blue-200 flex flex-col sm:flex-row justify-between items-start sm:items-center"
+        </header>
+
+        {/* Right side: Verse List */}
+        <section
+          className="relative w-full p-8 sm:p-10 rounded-3xl shadow-2xl space-y-8 
+                     bg-gradient-to-br from-[#f9f5e7]/50 to-[#f9f5e7]/30 backdrop-blur-md border border-[#6b705c]/20
+                     max-h-[80vh] overflow-y-auto custom-scrollbar"
+        >
+          {loading ? (
+            <div className="flex flex-col items-center justify-center p-12">
+              <Loader2 size={48} className="animate-spin text-[#d4af37]" />
+              <p className="mt-4 text-center text-[#495057] text-lg font-semibold">
+                Loading your cherished verses...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center gap-4 text-center p-12 text-[#a4161a]">
+              <XCircle size={48} />
+              <p className="text-lg font-semibold">{error}</p>
+            </div>
+          ) : favoriteVerses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center space-y-6 p-12">
+              <h2 className="text-3xl font-bold text-[#6b705c]">
+                Your Sacred Collection Awaits
+              </h2>
+              <p className="text-[#495057] max-w-sm">
+                Start your journey through the scriptures and save verses you
+                love. They will appear here.
+              </p>
+              <Link
+                href="/books"
+                className="mt-4 px-8 py-4 bg-[#a4161a] text-white font-semibold rounded-full shadow-lg hover:bg-[#822121] transition-all transform hover:scale-105"
               >
-                <div className="flex-1 mb-4 sm:mb-0">
-                  <p className="text-lg font-semibold text-blue-700">
-                    {verse.book} {verse.chapter}:{verse.verse_number}
-                  </p>
-                  <p className="text-gray-800 italic mt-2 leading-relaxed">
-                    &quot;{verse.verse_text}&quot;
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Added on: {new Date(verse.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleDelete(verse.id)}
-                  disabled={deleteLoadingId === verse.id}
-                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                Explore Books 📖
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {favoriteVerses.map((verse) => (
+                <div
+                  key={verse.id}
+                  className="p-6 bg-[#f9f5e7]/80 rounded-2xl shadow-lg border border-[#6b705c]/20 flex flex-col justify-between transition-transform hover:scale-[1.02] duration-300"
                 >
-                  {deleteLoadingId === verse.id ? "Deleting..." : "Delete"}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+                  <div>
+                    <p className="text-[#6b705c] font-bold text-xl">
+                      {verse.book} {verse.chapter}:{verse.verse_number}
+                    </p>
+                    <p className="mt-2 text-[#495057] italic leading-relaxed">
+                      &quot;{verse.verse_text}&quot;
+                    </p>
+                    <p className="mt-4 text-[#d4af37] text-sm font-semibold">
+                      Saved:{" "}
+                      {new Date(verse.created_at).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(verse.id)}
+                    disabled={deleteLoadingId === verse.id}
+                    className="mt-6 px-4 py-2 bg-[#a4161a] text-white rounded-full hover:bg-[#822121] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  >
+                    {deleteLoadingId === verse.id ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      "Remove"
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

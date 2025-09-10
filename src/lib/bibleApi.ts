@@ -109,6 +109,12 @@ interface BibleApiSearchResponse {
   }[];
 }
 
+export interface VerseDetails {
+  text: string;
+  reference: string;
+  version: string;
+}
+
 // ---------- Cache with expiration ----------
 interface CacheItem<T> {
   data: T;

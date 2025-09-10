@@ -2,29 +2,45 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "../store/authStore";
-import { useVerseStore } from "../store/verseStore"; // Import the new store
+import { useVerseStore } from "../store/verseStore";
+
+interface MenuItem {
+  name: string;
+  href: string;
+  authenticated: boolean;
+  icon: string;
+}
+
+interface ActionLink {
+  name: string;
+  href: string;
+  type: "link";
+  icon: string;
+}
+
+interface ActionButton {
+  name: string;
+  onClick: () => void;
+  type: "button";
+  icon: string;
+}
+
+type AuthAction = ActionLink | ActionButton;
 
 const Navbar: React.FC = () => {
   const { isAuthenticated, user, clearAuth } = useAuthStore();
-  const { hasNewVerse } = useVerseStore(); // Get the notification state
+  const { hasNewVerse } = useVerseStore();
   const router = useRouter();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 50) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll);
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const handleLogout = () => {
@@ -33,152 +49,132 @@ const Navbar: React.FC = () => {
     setIsOpen(false);
   };
 
+  const menuItems: MenuItem[] = [
+    { name: "Books", href: "/books", authenticated: false, icon: "📖" },
+    { name: "Favorites", href: "/favorites", authenticated: true, icon: "⭐" },
+  ];
+
+  const authActions: AuthAction[] = isAuthenticated
+    ? [
+        {
+          name: "Logout",
+          onClick: handleLogout,
+          type: "button",
+          icon: "🚪",
+        } as AuthAction,
+      ]
+    : [
+        {
+          name: "Login",
+          href: "/login",
+          type: "link",
+          icon: "🔑",
+        } as AuthAction,
+        {
+          name: "Sign Up",
+          href: "/signup",
+          type: "link",
+          icon: "✍️",
+        } as AuthAction,
+      ];
+
+  const baseClasses = "transition-all duration-500 ease-in-out";
+
   return (
-    <header
-      className={`fixed top-0 left-0 w-full z-50 bg-gray-50 bg-opacity-90 backdrop-blur-sm transition-all duration-300
-      ${isScrolled ? "py-0.5 shadow-lg" : "py-1 shadow-md"}`}
-    >
+    <header className={`fixed top-0 left-0 w-full z-50 ${baseClasses}`}>
       <nav
-        className={`max-w-7xl mx-auto rounded-xl border border-blue-200 flex items-center justify-between transition-all duration-300
-        ${
+        className={`relative max-w-7xl mx-auto rounded-[3rem] ${
           isScrolled
-            ? "my-0.5 p-1 sm:p-1.5 lg:p-2 bg-blue-100"
-            : "my-1 p-2 sm:p-2.5 lg:p-3 bg-blue-50"
-        }`}
+            ? "py-0.5 mt-0.5 shadow-xl bg-gray-50/70 backdrop-blur-md"
+            : "py-2 mt-2 shadow-2xl bg-gradient-to-r from-[#f8f1e7] to-[#f2e2d2]"
+        } border border-[#d4bfa3] flex items-center justify-between px-4 sm:px-6 lg:px-8 ${baseClasses}`}
       >
+        {/* Logo */}
         <Link
           href="/"
-          className={`flex items-center space-x-2 text-blue-800 hover:text-blue-900 transition-colors flex-shrink-0
-          ${isScrolled ? "text-xl" : "text-2xl"}`}
+          className={`relative z-10 flex items-center space-x-2 font-extrabold flex-shrink-0 group ${
+            isScrolled ? "text-xl" : "text-2xl"
+          } ${baseClasses} text-[#6b2e2e]`}
         >
-          {/* SVG Logo */}
-          <svg
-            width={isScrolled ? "30" : "40"}
-            height={isScrolled ? "30" : "40"}
-            viewBox="0 0 100 100"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-labelledby="title desc"
-            role="img"
-          >
-            <title id="title">Bible Nav Logo</title>
-            <desc id="desc">
-              A stylized open book with a compass needle, representing Bible
-              navigation.
-            </desc>
-
-            <circle
-              cx="50"
-              cy="50"
-              r="48"
-              fill="#E0F2FE"
-              stroke="#6B46C1"
-              strokeWidth="2"
-            />
-
-            <path
-              d="M25 25 L50 20 L75 25 L75 75 L50 80 L25 75 Z"
-              fill="#FFFFFF"
-              stroke="#805AD5"
-              strokeWidth="2"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            <path
-              d="M50 20 L50 80"
-              stroke="#6B46C1"
-              strokeWidth="2"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-
-            <line
-              x1="30"
-              y1="35"
-              x2="45"
-              y2="33"
-              stroke="#CBD5E0"
-              strokeWidth="1.5"
-            />
-            <line
-              x1="30"
-              y1="45"
-              x2="45"
-              y2="43"
-              stroke="#CBD5E0"
-              strokeWidth="1.5"
-            />
-            <line
-              x1="30"
-              y1="55"
-              x2="45"
-              y2="53"
-              stroke="#CBD5E0"
-              strokeWidth="1.5"
-            />
-            <line x1="30" y1="65" y2="63" stroke="#CBD5E0" strokeWidth="1.5" />
-
-            <line
-              x1="55"
-              y1="33"
-              x2="70"
-              y2="35"
-              stroke="#CBD5E0"
-              strokeWidth="1.5"
-            />
-            <line
-              x1="55"
-              y1="43"
-              x2="70"
-              y2="45"
-              stroke="#CBD5E0"
-              strokeWidth="1.5"
-            />
-            <line
-              x1="55"
-              y1="53"
-              x2="70"
-              y2="55"
-              stroke="#CBD5E0"
-              strokeWidth="1.5"
-            />
-            <line
-              x1="55"
-              y1="63"
-              x2="70"
-              y2="65"
-              stroke="#CBD5E0"
-              strokeWidth="1.5"
-            />
-
-            {/* Compass Needle */}
-            <path
-              d="M50 30 L53 45 L50 50 L47 45 Z"
-              fill="#F6AD55"
-              stroke="#D69E2E"
-              strokeWidth="1.5"
-            />
-            <path
-              d="M50 70 L53 55 L50 50 L47 55 Z"
-              fill="#A0AEC0"
-              stroke="#718096"
-              strokeWidth="1.5"
-            />
-
-            <circle cx="50" cy="50" r="3" fill="#6B46C1" />
-          </svg>
-          <span className="font-extrabold">Bible Nav</span>
+          <div className="relative">
+            <span
+              className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
+              w-10 h-10 rounded-full bg-[#a17373] group-hover:bg-[#8b3d3d] ${baseClasses}`}
+            ></span>
+            <span
+              className={`relative z-10 text-4xl group-hover:scale-110 ${baseClasses}`}
+            >
+              📜
+            </span>
+          </div>
+          <span className="tracking-wide">Bible Nav</span>
         </Link>
+
+        {/* Desktop Menu */}
+        <div className="hidden md:flex items-center space-x-4">
+          <div className="flex items-center space-x-4 p-2 bg-[#f4e7e0]/50 rounded-full shadow-inner">
+            {menuItems.map(
+              (item) =>
+                (!item.authenticated || isAuthenticated) && (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`relative flex items-center px-4 py-2 rounded-full font-medium transition-colors duration-300 ${
+                      pathname === item.href
+                        ? "bg-[#800000] text-white shadow-lg"
+                        : "text-[#6b2e2e] hover:bg-[#660000]/20 hover:text-white"
+                    }`}
+                  >
+                    <span className="mr-2 text-xl">{item.icon}</span>
+                    <span className="text-sm">{item.name}</span>
+                  </Link>
+                )
+            )}
+          </div>
+
+          {isAuthenticated && (
+            <span className="relative text-sm font-semibold text-[#6b2e2e] bg-[#f4e7e0]/50 px-4 py-2 rounded-full shadow-inner">
+              Hello, {user?.username || "Seeker"}!
+              {hasNewVerse && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+              )}
+            </span>
+          )}
+
+          {authActions.map((action) =>
+            action.type === "button" ? (
+              <button
+                key={action.name}
+                onClick={(action as ActionButton).onClick}
+                className="px-6 py-2 bg-[#6b2e2e] text-white rounded-full hover:bg-[#800000] shadow-lg font-bold transition-colors"
+              >
+                {action.name}
+              </button>
+            ) : (
+              <Link
+                key={action.name}
+                href={(action as ActionLink).href}
+                className={`px-6 py-2 rounded-full font-bold shadow-lg transition-colors ${
+                  action.name === "Login"
+                    ? "bg-[#cfa06b] text-white hover:bg-[#b5834c]"
+                    : "bg-[#6b2e2e] text-white hover:bg-[#800000]"
+                }`}
+              >
+                {action.name}
+              </Link>
+            )
+          )}
+        </div>
 
         {/* Mobile menu button */}
         <div className="md:hidden">
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="text-gray-700 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md p-2"
+            className="p-2 text-[#6b2e2e] hover:text-[#800000] focus:outline-none focus:ring-2 focus:ring-[#800000] rounded-full bg-[#f4e7e0]/50 transition-colors"
             aria-label="Toggle navigation"
           >
             <svg
-              className="w-7 h-7"
+              className="w-8 h-8"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -202,110 +198,64 @@ const Navbar: React.FC = () => {
             </svg>
           </button>
         </div>
-
-        {/* Desktop Navigation Links */}
-        <div className="hidden md:flex items-center space-x-6">
-          <Link
-            href="/books"
-            className="text-gray-800 hover:text-blue-700 transition-colors text-base font-medium"
-          >
-            Books
-          </Link>
-          {isAuthenticated && (
-            <Link
-              href="/favorites"
-              className="text-gray-800 hover:text-blue-700 transition-colors text-base font-medium"
-            >
-              Favorites
-            </Link>
-          )}
-          {isAuthenticated ? (
-            <>
-              <span className="text-gray-800 text-base font-semibold relative">
-                Hello, {user?.username || "User"}!
-                {hasNewVerse && (
-                  <span className="absolute -top-1 -right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                )}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium text-base shadow-md"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="px-3 py-1.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-colors font-medium text-base shadow-sm"
-              >
-                Login
-              </Link>
-              <Link
-                href="/signup"
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-base shadow-md"
-              >
-                Sign up
-              </Link>
-            </>
-          )}
-        </div>
       </nav>
 
-      {/* Mobile Menu (conditionally rendered) */}
+      {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden bg-blue-100 rounded-b-lg shadow-inner py-3">
-          <div className="flex flex-col items-center space-y-3">
-            <Link
-              href="/books"
-              onClick={() => setIsOpen(false)}
-              className="text-gray-800 hover:text-blue-700 transition-colors text-base font-medium w-full text-center py-1.5"
-            >
-              Books
-            </Link>
+        <div className="md:hidden py-4 bg-[#f4e7e0]/90 backdrop-blur-md rounded-b-3xl shadow-lg mt-1">
+          <div className="flex flex-col items-center space-y-4">
+            {menuItems.map(
+              (item) =>
+                (!item.authenticated || isAuthenticated) && (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => setIsOpen(false)}
+                    className={`flex items-center space-x-2 text-[#6b2e2e] font-medium text-lg transition-colors duration-300 ${
+                      pathname === item.href
+                        ? "bg-[#800000]/80 px-4 py-2 rounded-full text-white"
+                        : "hover:bg-[#660000]/20 hover:text-white px-4 py-2 rounded-full"
+                    }`}
+                  >
+                    <span>{item.icon}</span>
+                    <span>{item.name}</span>
+                  </Link>
+                )
+            )}
             {isAuthenticated && (
-              <Link
-                href="/favorites"
-                onClick={() => setIsOpen(false)}
-                className="text-gray-800 hover:text-blue-700 transition-colors text-base font-medium w-full text-center py-1.5"
-              >
-                Favorites
-              </Link>
+              <span className="relative text-lg font-bold text-[#6b2e2e] mt-4">
+                Hello, {user?.username || "Seeker"}!
+                {hasNewVerse && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+                )}
+              </span>
             )}
-            {isAuthenticated ? (
-              <>
-                <span className="text-gray-800 text-base font-semibold w-full text-center py-1.5 relative">
-                  Hello, {user?.username || "User"}!
-                  {hasNewVerse && (
-                    <span className="absolute -top-1 right-1/4 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                  )}
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium text-base w-auto shadow-md"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  onClick={() => setIsOpen(false)}
-                  className="px-3 py-1.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-colors font-medium text-base w-auto shadow-sm"
-                >
-                  Login
-                </Link>
-                <Link
-                  href="/signup"
-                  onClick={() => setIsOpen(false)}
-                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-base w-auto shadow-md"
-                >
-                  Sign up
-                </Link>
-              </>
-            )}
+            <div className="flex space-x-4 mt-4">
+              {authActions.map((action) =>
+                action.type === "button" ? (
+                  <button
+                    key={action.name}
+                    onClick={(action as ActionButton).onClick}
+                    className="px-4 py-2 bg-[#6b2e2e] text-white rounded-full font-bold hover:bg-[#800000] transition-colors"
+                  >
+                    {action.name}
+                  </button>
+                ) : (
+                  <Link
+                    key={action.name}
+                    href={(action as ActionLink).href}
+                    onClick={() => setIsOpen(false)}
+                    className={`px-4 py-2 rounded-full font-bold transition-colors ${
+                      action.name === "Login"
+                        ? "bg-[#cfa06b] text-white hover:bg-[#b5834c]"
+                        : "bg-[#6b2e2e] text-white hover:bg-[#800000]"
+                    }`}
+                  >
+                    {action.name}
+                  </Link>
+                )
+              )}
+            </div>
           </div>
         </div>
       )}

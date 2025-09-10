@@ -1,147 +1,160 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useRef } from "react";
 import Link from "next/link";
-import { fetchVerseOfTheDay } from "../lib/bibleApi";
 import { useAuthStore } from "../store/authStore";
-import { useVerseStore } from "../store/verseStore"; // Import the new store
-
-interface VerseData {
-  text: string;
-  reference: string;
-  version: string;
-}
+import useVerse from "@/hooks/useVerse";
 
 const HomePage: React.FC = () => {
-  const [verseOfTheDay, setVerseOfTheDay] = useState<VerseData | null>(null);
-  const [loadingVerse, setLoadingVerse] = useState<boolean>(true);
-  const [verseError, setVerseError] = useState<string | null>(null);
-
   const { isAuthenticated } = useAuthStore();
-  const { setLastUpdated, clearNewVerse } = useVerseStore(); // Get actions from the verse store
+  const { verseData, loading, error } = useVerse();
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const getVerse = async () => {
-      setLoadingVerse(true);
-      setVerseError(null);
-      const data = await fetchVerseOfTheDay();
-      if (data && data.verse && data.verse.details) {
-        setVerseOfTheDay({
-          text: data.verse.details.text,
-          reference: data.verse.details.reference,
-          version: data.verse.details.version,
-        });
+  const featureCards = [
+    {
+      href: "/books",
+      title: "Explore Books",
+      description: "Find any book, chapter, or verse with ease.",
+      color: "bg-[#6b705c]/30",
+      accent: "text-[#6b705c]",
+      icon: "📜",
+      authRequired: false
+    },
+    {
+      href: "/favorites",
+      title: "Manage Favorites",
+      description:
+        "Keep track of your most cherished verses and revisit them anytime.",
+      color: "bg-[#a4161a]/30",
+      accent: "text-[#a4161a]",
+      icon: "❤️",
+      authRequired: false,
+    },
+    {
+      href: "/search",
+      title: "Quick Search",
+      description: "Find a specific verse or passage quickly.",
+      color: "bg-[#d4af37]/30",
+      accent: "text-[#d4af37]",
+      icon: "🔍",
+      authRequired: true,
+    },
+  ];
 
-        // Use the current date as the key to check for a new verse
-        const today = new Date().toISOString().split("T")[0];
-        setLastUpdated(today); // Update the store with today's date
-      } else {
-        setVerseError(
-          "Failed to load Verse of the Day. Please try again later."
-        );
-      }
-      setLoadingVerse(false);
-    };
-
-    getVerse();
-    clearNewVerse(); // Clear the notification when the user lands on the homepage
-  }, [setLastUpdated, clearNewVerse]);
+  const scrollToContent = () => {
+    if (contentRef.current) {
+      contentRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 text-gray-800">
-      <main className="w-full max-w-5xl flex flex-col items-center">
-        <header className="text-center mb-12">
-          <h1 className="text-6xl sm:text-7xl font-extrabold text-blue-900 drop-shadow-md">
-            Welcome to <span className="text-amber-500">Bible Nav</span>
+    <div className="relative min-h-screen flex flex-col overflow-hidden text-[#2d2a26]">
+      {/* Background Image */}
+      <div
+        className="absolute inset-0 -z-20 bg-cover bg-center"
+        style={{ backgroundImage: "url('/images/parchment-bg.jpg')" }} // place parchment-bg.jpg inside /public/images
+      ></div>
+
+      {/* Transparent parchment overlay */}
+      <div className="absolute inset-0 -z-10 bg-[#f9f5e7]/85"></div>
+
+      {/* Sacred Glow */}
+      <div className="absolute inset-0 -z-0">
+        <div className="absolute top-1/4 left-1/3 w-[30vw] h-[30vw] rounded-full bg-[#d4af37]/25 blur-[120px]"></div>
+        <div className="absolute bottom-1/4 right-1/3 w-[35vw] h-[35vw] rounded-full bg-[#a4161a]/25 blur-[150px]"></div>
+      </div>
+
+      {/* Hero Section: two-column layout */}
+      <main className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 px-6 sm:px-10 lg:px-16 py-20 items-center">
+        {/* Left side: Heading */}
+        <header className="text-left space-y-6">
+          <h1 className="text-4xl sm:text-6xl font-extrabold text-[#6b705c] leading-tight">
+            Navigate the{" "}
+            <span className="text-[#a4161a]">Sacred Narrative</span>
           </h1>
-          <p className="mt-3 text-xl md:text-2xl text-gray-600 font-light">
-            Your journey through the scriptures begins here.
+          <p className="text-lg sm:text-xl font-light text-[#495057] max-w-lg">
+            Unlock wisdom, find solace, and guide your spiritual path through
+            scripture.
           </p>
         </header>
-        {/* Verse of the Day Section */}
-        <section className="bg-white p-8 md:p-10 rounded-3xl shadow-2xl ring-4 ring-blue-100 ring-opacity-50 w-full max-w-xl text-center transition-all duration-500 hover:scale-[1.02] transform">
-          <h2 className="text-3xl font-bold text-blue-700 mb-5 flex items-center justify-center gap-3">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-              className="w-8 h-8 text-amber-500"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-              />
-            </svg>
+
+        {/* Right side: Verse of the Day */}
+        <section className="relative bg-gradient-to-br from-[#6b705c]/20 to-[#d4af37]/10 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-2xl border border-[#6b705c]/20">
+          <span className="absolute top-4 left-6 text-6xl opacity-10 select-none">
+            ❝
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-6 flex items-center gap-2 text-[#a4161a]">
+            <span className="text-[#d4af37]">🕯️</span>
             Verse of the Day
           </h2>
-          <div className="font-serif text-lg md:text-xl italic text-gray-800 leading-relaxed min-h-[8rem] flex items-center justify-center">
-            {loadingVerse ? (
-              <p className="text-gray-500">Loading verse...</p>
-            ) : verseError ? (
-              <p className="text-red-500">{verseError}</p>
-            ) : verseOfTheDay ? (
-              <div>
-                <p>&quot;{verseOfTheDay.text}&quot;</p>
-                <p className="mt-4 text-sm font-sans text-gray-500 not-italic">
-                  - {verseOfTheDay.reference} ({verseOfTheDay.version})
+          <div className="font-serif text-lg md:text-xl italic text-[#2d2a26] leading-relaxed min-h-[8rem] text-center">
+            {loading ? (
+              <p className="text-[#495057] animate-pulse">
+                Loading your daily guidance...
+              </p>
+            ) : error ? (
+              <p className="text-[#a4161a] font-sans">{error}</p>
+            ) : verseData ? (
+              <>
+                <p>&ldquo;{verseData.text}&rdquo;</p>
+                <p className="mt-4 text-sm font-sans text-[#6b705c] not-italic">
+                  – {verseData.reference} ({verseData.version})
                 </p>
-              </div>
+              </>
             ) : (
-              <p className="text-gray-500">No verse available today.</p>
+              <p className="text-[#6b705c] font-sans">
+                No verse available today.
+              </p>
             )}
           </div>
         </section>
-        {/* Feature Cards */}
-        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-          <Link
-            href="/books"
-            className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-blue-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
-          >
-            <h3 className="text-2xl font-bold text-blue-700 group-hover:text-blue-800 transition-colors">
-              Explore Books
-              <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
-                →
-              </span>
-            </h3>
-            <p className="mt-2 text-gray-600">
-              Find any book, chapter, or verse with ease.
-            </p>
-          </Link>
-          <Link
-            href="/favorites"
-            className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-yellow-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
-          >
-            <h3 className="text-2xl font-bold text-yellow-600 group-hover:text-yellow-700 transition-colors">
-              Manage Favorites
-              <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
-                →
-              </span>
-            </h3>
-            <p className="mt-2 text-gray-600">
-              Keep track of your most cherished verses and revisit them anytime.
-            </p>
-          </Link>
-          {isAuthenticated && (
-            <Link
-              href="/search"
-              className="group p-8 bg-white rounded-3xl shadow-lg border border-gray-200 hover:bg-green-50 transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
-            >
-              <h3 className="text-2xl font-bold text-green-700 group-hover:text-green-800 transition-colors">
-                Quick Search
-                <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
-                  →
-                </span>
-              </h3>
-              <p className="mt-2 text-gray-600">
-                Find a specific verse or passage quickly.
-              </p>
-            </Link>
-          )}
-        </div>
       </main>
+
+      {/* CTA Below Hero */}
+      <div className="flex justify-center mb-16">
+        <button
+          onClick={scrollToContent}
+          className="relative inline-flex items-center gap-3 px-10 py-4 text-lg font-semibold text-white bg-[#a4161a] rounded-full shadow-xl hover:bg-[#822121] transition-all duration-300"
+        >
+          Explore Your Journey
+          <span className="text-2xl">↓</span>
+        </button>
+      </div>
+
+      {/* Features Section */}
+      <div
+        ref={contentRef}
+        className="relative z-10 w-full max-w-7xl mx-auto py-20 px-6 sm:px-10 lg:px-16"
+      >
+        <h2 className="text-4xl font-bold text-center mb-16 text-[#6b705c]">
+          Discover Our Features
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+          {featureCards
+            .filter((card) => !card.authRequired || isAuthenticated)
+            .map((card, index) => (
+              <Link
+                key={card.title}
+                href={card.href}
+                className={`group relative p-8 rounded-3xl shadow-xl border border-[#6b705c]/20
+                  ${card.color} backdrop-blur-sm transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl`}
+                style={{ animationDelay: `${index * 200}ms` }}
+              >
+                <div className="relative z-10">
+                  <span className={`text-5xl block`}>{card.icon}</span>
+                  <h3 className={`mt-4 text-2xl font-bold ${card.accent}`}>
+                    {card.title}
+                    <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
+                      →
+                    </span>
+                  </h3>
+                  <p className="mt-2 text-[#495057]">{card.description}</p>
+                </div>
+              </Link>
+            ))}
+        </div>
+      </div>
     </div>
   );
 };

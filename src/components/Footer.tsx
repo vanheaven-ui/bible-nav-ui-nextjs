@@ -1,5 +1,3 @@
-// This component provides the global footer for the application.
-
 import React from "react";
 
 const Footer: React.FC = () => {

@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef, memo, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  forwardRef,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { fetchBibleBooks, fetchBibleChapter, Verse } from "@/lib/bibleApi";
@@ -12,96 +18,18 @@ import {
   FavoriteVerse,
   Note,
 } from "@/lib/backendApi";
-import { Heart, Pencil } from "lucide-react";
 import { Tooltip } from "react-tooltip";
+import VerseItem from "@/components/VerseItem";
 
 interface BibleChapter {
   chapter: number;
   verses: Verse[];
 }
 
-interface SlateNode {
-  children: { text: string }[];
-}
-
-interface VerseItemProps {
-  verse: Verse;
-  bookName: string;
-  chapterNumber: number;
-  isFav: boolean;
-  userNote?: Note;
-  toggleFavorite: (verse: Verse) => void;
-}
-
-const VerseItem: React.FC<VerseItemProps> = memo(
-  ({ verse, bookName, chapterNumber, isFav, userNote, toggleFavorite }) => {
-    const router = useRouter();
-
-    const getPlainText = (content: string): string => {
-      try {
-        const parsedContent: SlateNode[] = JSON.parse(content);
-        return parsedContent
-          .map((node) => node.children.map((child) => child.text).join(""))
-          .join(" ");
-      } catch (e) {
-        console.error("Failed to parse note content:", e);
-        return "Error loading note content.";
-      }
-    };
-
-    return (
-      <div
-        className="flex items-start justify-between p-4 bg-gray-50 rounded-lg shadow hover:bg-gray-100 transition-colors cursor-pointer"
-        onClick={() =>
-          router.push(
-            `/books/${bookName}/${chapterNumber}/${verse.verse_number}`
-          )
-        }
-      >
-        <div className="flex items-start space-x-3">
-          <span className="font-bold text-blue-700 w-10 text-right">
-            {verse.verse_number}
-          </span>
-          <p className="text-gray-800 leading-relaxed">{verse.text}</p>
-        </div>
-        <div className="flex items-center space-x-2 ml-4">
-          {userNote && (
-            <div
-              className="p-1 rounded-full text-blue-500"
-              data-tooltip-id="note-tooltip"
-              data-tooltip-content={getPlainText(userNote.content)}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Pencil className="h-4 w-4" />
-            </div>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleFavorite(verse);
-            }}
-            className={`p-2 rounded-full transition ${
-              isFav ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-500"
-            }`}
-            title={isFav ? "Remove from favorites" : "Add to favorites"}
-          >
-            <Heart
-              className={`h-5 w-5 ${isFav ? "fill-red-500" : "fill-none"}`}
-            />
-          </button>
-        </div>
-      </div>
-    );
-  }
-);
-
-VerseItem.displayName = "VerseItem";
-
 const ChapterVersesPage: React.FC = () => {
   const { bookName, chapterNumber } = useParams();
   const router = useRouter();
 
-  // Narrow types to string / number
   const decodedBookName =
     typeof bookName === "string" ? decodeURIComponent(bookName) : "";
   const chapterNum =
@@ -113,18 +41,16 @@ const ChapterVersesPage: React.FC = () => {
   const [userNotes, setUserNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentVerse, setCurrentVerse] = useState<number | null>(null);
   const [scrollVerse, setScrollVerse] = useState<number | "">("");
 
   const verseRefs = useRef<Record<number, HTMLDivElement | null>>({});
-
   const token =
     typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
 
-  // Toggle favorite verse
   const toggleFavorite = useCallback(
     async (verse: Verse) => {
       if (!token || !decodedBookName || !chapterNum) return;
-
       const existing = favorites.find(
         (f) =>
           f.book === decodedBookName &&
@@ -152,17 +78,16 @@ const ChapterVersesPage: React.FC = () => {
     [favorites, token, decodedBookName, chapterNum]
   );
 
-  // Scroll to specific verse
   const handleScrollToVerse = useCallback(() => {
     if (typeof scrollVerse === "number" && verseRefs.current[scrollVerse]) {
       verseRefs.current[scrollVerse]?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
+      setCurrentVerse(scrollVerse);
     }
   }, [scrollVerse]);
 
-  // Load chapter, favorites, and notes
   useEffect(() => {
     const loadData = async () => {
       if (!decodedBookName || !chapterNum) {
@@ -212,6 +137,19 @@ const ChapterVersesPage: React.FC = () => {
         }
       }
 
+      const urlParams = new URLSearchParams(window.location.search);
+      const verseParam = urlParams.get("verse");
+      if (verseParam) {
+        const verseNum = Number(verseParam);
+        setCurrentVerse(verseNum);
+        setTimeout(() => {
+          verseRefs.current[verseNum]?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }, 100);
+      }
+
       setLoading(false);
     };
 
@@ -219,96 +157,125 @@ const ChapterVersesPage: React.FC = () => {
   }, [decodedBookName, chapterNum, token]);
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-start py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl w-full space-y-6 p-10 bg-white rounded-xl shadow-lg bg-opacity-80 backdrop-blur-sm">
-        <h1 className="text-3xl font-extrabold text-center text-blue-800 mb-4">
-          {decodedBookName} {chapterNum}
-        </h1>
+    <div className="relative min-h-screen flex flex-col overflow-hidden text-[#495057]">
+      {/* Background */}
+      <div
+        className="absolute inset-0 -z-20 bg-cover bg-center"
+        style={{ backgroundImage: "url('/images/parchment-bg.jpg')" }}
+      />
+      <div className="absolute inset-0 -z-10 bg-[#f9f5e7]/85" />
 
-        <div className="flex justify-center mb-4 space-x-2 relative group">
-          <input
-            type="number"
-            min={1}
-            placeholder="Verse #"
-            value={scrollVerse}
-            onChange={(e) => setScrollVerse(Number(e.target.value))}
-            className="w-24 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-          />
-          <button
-            onClick={handleScrollToVerse}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Go
-          </button>
-        </div>
+      {/* Main Container */}
+      <div className="relative z-10 flex-1 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8 w-full">
+        <div className="max-w-6xl w-full p-8 sm:p-10 rounded-xl shadow-xl space-y-12 bg-[#f9f5e7]/50 backdrop-blur-md border border-[#6b705c]/30">
+          {/* Main Heading with gold underline */}
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-center text-[#6b705c] mb-6 relative after:absolute after:w-24 after:h-1 after:bg-[#d4af37] after:left-1/2 after:-translate-x-1/2 after:mt-2">
+            {decodedBookName} {chapterNum}
+          </h1>
 
-        {loading ? (
-          <p className="text-center text-gray-600 text-lg animate-pulse">
-            Loading verses...
+          <p className="text-center text-[#495057] text-xl font-semibold mb-6">
+            Read and reflect on each verse
           </p>
-        ) : error ? (
-          <p className="text-center text-red-600 text-lg">{error}</p>
-        ) : (
-          <div className="space-y-4">
-            {chapter?.verses.map((v) => {
-              const isFav = favorites.some(
-                (f) =>
-                  f.book === decodedBookName &&
-                  f.chapter === chapterNum &&
-                  f.verse_number === v.verse_number
-              );
-              const userNote = userNotes.find(
-                (n) =>
-                  n.book === decodedBookName &&
-                  n.chapter === chapterNum &&
-                  n.verse === v.verse_number
-              );
 
-              return (
-                <VerseItem
-                  key={v.verse_number}
-                  verse={v}
-                  bookName={decodedBookName}
-                  chapterNumber={chapterNum}
-                  isFav={isFav}
-                  userNote={userNote}
-                  toggleFavorite={toggleFavorite}
-                />
-              );
-            })}
+          {/* Scroll to verse input */}
+          <div className="flex justify-center mb-6 space-x-4">
+            <input
+              type="number"
+              min={1}
+              placeholder="Verse #"
+              value={scrollVerse}
+              onChange={(e) => setScrollVerse(Number(e.target.value))}
+              className="w-24 px-3 py-2 rounded-lg border-2 border-[#6b705c]/40 focus:outline-none focus:ring-2 focus:ring-[#d4af37] transition-colors bg-[#f9f5e7] text-[#2d2a26]"
+            />
+            <button
+              onClick={handleScrollToVerse}
+              className="px-6 py-2 bg-[#a4161a] text-white rounded-lg font-bold shadow-md hover:bg-[#822121] transition-colors"
+            >
+              Go
+            </button>
           </div>
-        )}
 
-        <div className="flex justify-between items-center mt-8">
-          {chapterNum > 1 && (
-            <button
-              onClick={() =>
-                router.push(`/books/${decodedBookName}/${chapterNum - 1}`)
-              }
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg shadow hover:bg-gray-300 transition-colors"
-            >
-              ← Previous Chapter
-            </button>
-          )}
-          {chapterNum < bookChapters && (
-            <button
-              onClick={() =>
-                router.push(`/books/${decodedBookName}/${chapterNum + 1}`)
-              }
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors"
-            >
-              Next Chapter →
-            </button>
-          )}
-        </div>
+          {/* Verses List */}
+          {loading ? (
+            <p className="text-center text-[#495057] text-lg animate-pulse">
+              Loading verses...
+            </p>
+          ) : error ? (
+            <p className="text-center text-[#a4161a] text-lg">{error}</p>
+          ) : (
+            <div className="space-y-4">
+              {chapter?.verses.map((v) => {
+                const isFav = favorites.some(
+                  (f) =>
+                    f.book === decodedBookName &&
+                    f.chapter === chapterNum &&
+                    f.verse_number === v.verse_number
+                );
+                const userNote = userNotes.find(
+                  (n) =>
+                    n.book === decodedBookName &&
+                    n.chapter === chapterNum &&
+                    n.verse === v.verse_number
+                );
 
-        <div className="mt-6 text-center">
-          <Link
-            href={`/books/${decodedBookName}`}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition-colors"
-          >
-            📖 Back to Chapters
-          </Link>
+                return (
+                  <VerseItem
+                    key={v.verse_number}
+                    verse={v}
+                    bookName={decodedBookName}
+                    chapterNumber={chapterNum}
+                    isFav={isFav}
+                    userNote={userNote}
+                    toggleFavorite={toggleFavorite}
+                    isCurrent={currentVerse === v.verse_number}
+                    onClick={() =>
+                      router.push(
+                        `/books/${encodeURIComponent(
+                          decodedBookName
+                        )}/${chapterNum}/${v.verse_number}`
+                      )
+                    }
+                    ref={(el: HTMLDivElement | null) => {
+                      verseRefs.current[v.verse_number] = el;
+                    }}
+                  />
+                );
+              })}
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div className="flex justify-between items-center mt-8">
+            {chapterNum > 1 && (
+              <button
+                onClick={() =>
+                  router.push(`/books/${decodedBookName}/${chapterNum - 1}`)
+                }
+                className="px-4 py-2 bg-[#6b705c] text-white rounded-lg shadow-md hover:bg-[#5a5f4f] transition-colors"
+              >
+                ← Previous
+              </button>
+            )}
+            {chapterNum < bookChapters && (
+              <button
+                onClick={() =>
+                  router.push(`/books/${decodedBookName}/${chapterNum + 1}`)
+                }
+                className="px-4 py-2 bg-[#a4161a] text-white rounded-lg shadow-md hover:bg-[#822121] transition-colors"
+              >
+                Next →
+              </button>
+            )}
+          </div>
+
+          <div className="mt-6 text-center">
+            <Link
+              href={`/books/${decodedBookName}`}
+              className="px-4 py-2 bg-[#d4af37] text-white rounded-lg shadow-md hover:bg-[#b5952f] transition-colors"
+            >
+              📖 Back to Chapters
+            </Link>
+          </div>
         </div>
       </div>
       <Tooltip id="note-tooltip" />
