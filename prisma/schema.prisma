@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Users table (manual signup + Google OAuth)
+model User {
+  id        String   @id @default(cuid())
+  username  String?  @unique
+  email     String?  @unique
+  password  String? // hashed password (null if user signed up with Google)
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  accounts  Account[]
+  sessions  Session[]
+  notes     Note[]
+  favorites Favorite[]
+}
+
+/// OAuth Accounts (Google, etc.)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+/// NextAuth Sessions
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Email Verification tokens (NextAuth optional)
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+/// Notes for verses
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  book      String
+  chapter   Int
+  verse     Int
+  content   String // Slate JSON string
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Favorite verses
+model Favorite {
+  id          String   @id @default(cuid())
+  userId      String
+  book        String
+  chapter     Int
+  verseNumber Int
+  verseText   String
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
