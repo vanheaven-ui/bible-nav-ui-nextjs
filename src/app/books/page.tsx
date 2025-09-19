@@ -37,11 +37,13 @@ const BooksPage: React.FC = () => {
   }, []);
 
   const oldTestamentBooks = useMemo(
-    () => books.filter((b) => b.id <= OLD_TESTAMENT_COUNT),
+    // Corrected to cast b.id to a number
+    () => books.filter((b) => Number(b.id) <= OLD_TESTAMENT_COUNT),
     [books]
   );
   const newTestamentBooks = useMemo(
-    () => books.filter((b) => b.id > OLD_TESTAMENT_COUNT),
+    // Corrected to cast b.id to a number
+    () => books.filter((b) => Number(b.id) > OLD_TESTAMENT_COUNT),
     [books]
   );
 
@@ -106,7 +108,7 @@ const BooksPage: React.FC = () => {
       {/* Hero Background */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/parchment-bg.jpg')" }}
+        style={{ backgroundImage: "url('/images/parchment-bg.png')" }}
       />
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#f9f5e7]/90 to-[#f9f5e7]/70"></div>
 

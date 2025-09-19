@@ -1,10 +1,13 @@
 import { create } from "zustand";
 
-interface User {
-  id: number;
-  username: string;
-  email: string;
-  created_at?: string; 
+export interface User {
+  id: number | string;
+  username?: string | null;
+  email?: string | null;
+  name?: string | null;
+  image?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 interface AuthState {
@@ -13,6 +16,7 @@ interface AuthState {
   isAuthenticated: boolean;
   setAuth: (token: string, user: User) => void;
   clearAuth: () => void;
+  setSessionUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -21,12 +25,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
 
   setAuth: (token: string, user: User) => {
-  
+    const normalizedUser: User = {
+      ...user,
+      createdAt: user.createdAt ? new Date(user.createdAt) : undefined,
+      updatedAt: user.updatedAt ? new Date(user.updatedAt) : undefined,
+    };
     if (typeof window !== "undefined") {
       localStorage.setItem("authToken", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("user", JSON.stringify(normalizedUser));
     }
-    set({ token, user, isAuthenticated: true });
+    set({ token, user: normalizedUser, isAuthenticated: true });
   },
 
   clearAuth: () => {
@@ -36,22 +44,45 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
     set({ token: null, user: null, isAuthenticated: false });
   },
+
+  setSessionUser: (user: User) => {
+    const normalizedUser: User = {
+      ...user,
+      createdAt: user.createdAt ? new Date(user.createdAt) : undefined,
+      updatedAt: user.updatedAt ? new Date(user.updatedAt) : undefined,
+    };
+    if (typeof window !== "undefined") {
+      localStorage.setItem("user", JSON.stringify(normalizedUser));
+    }
+    set({ user: normalizedUser, isAuthenticated: true });
+  },
 }));
 
+// Initialize from localStorage
 if (typeof window !== "undefined") {
   const storedToken = localStorage.getItem("authToken");
   const storedUser = localStorage.getItem("user");
 
-  if (storedToken && storedUser) {
+  if (storedUser) {
     try {
-      const user: User = JSON.parse(storedUser);
-      useAuthStore.getState().setAuth(storedToken, user);
-    } catch (e: unknown) {
-      console.error(
-        "Failed to parse stored user data:",
-        e instanceof Error ? e.message : "Unknown error"
-      );
-      useAuthStore.getState().clearAuth(); 
+      const parsedUser: User = JSON.parse(storedUser);
+      const user: User = {
+        ...parsedUser,
+        createdAt: parsedUser.createdAt
+          ? new Date(parsedUser.createdAt)
+          : undefined,
+        updatedAt: parsedUser.updatedAt
+          ? new Date(parsedUser.updatedAt)
+          : undefined,
+      };
+
+      if (storedToken) {
+        useAuthStore.getState().setAuth(storedToken, user);
+      } else {
+        useAuthStore.getState().setSessionUser(user);
+      }
+    } catch {
+      useAuthStore.getState().clearAuth();
     }
   }
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "../store/authStore";
 import { useVerseStore } from "../store/verseStore";
+import { signOut } from "next-auth/react";
 
 interface MenuItem {
   name: string;
@@ -37,16 +38,23 @@ const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
+  // Scroll effect
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleLogout = () => {
-    clearAuth();
-    router.push("/login");
-    setIsOpen(false);
+  // Logout handler (works for Google and regular login)
+  const handleLogout = async () => {
+    try {
+      await signOut({ redirect: false }); // Google logout
+      clearAuth(); // clear local storage / Zustand
+      setIsOpen(false);
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   const menuItems: MenuItem[] = [
@@ -61,24 +69,81 @@ const Navbar: React.FC = () => {
           onClick: handleLogout,
           type: "button",
           icon: "🚪",
-        } as AuthAction,
+        },
       ]
     : [
-        {
-          name: "Login",
-          href: "/login",
-          type: "link",
-          icon: "🔑",
-        } as AuthAction,
-        {
-          name: "Sign Up",
-          href: "/signup",
-          type: "link",
-          icon: "✍️",
-        } as AuthAction,
+        { name: "Login", href: "/login", type: "link", icon: "🔑" },
+        { name: "Sign Up", href: "/signup", type: "link", icon: "✍️" },
       ];
 
   const baseClasses = "transition-all duration-500 ease-in-out";
+
+  // Render menu items (desktop + mobile)
+  const renderMenuItems = (isMobile = false) =>
+    menuItems.map(
+      (item) =>
+        (!item.authenticated || isAuthenticated) && (
+          <Link
+            key={item.name}
+            href={item.href}
+            onClick={isMobile ? () => setIsOpen(false) : undefined}
+            className={`flex items-center ${
+              isMobile ? "space-x-2 text-lg" : "px-4 py-2 text-sm"
+            } rounded-full font-medium transition-colors duration-300 ${
+              pathname === item.href
+                ? "bg-[#800000]/80 text-white"
+                : "hover:bg-[#660000]/20 hover:text-white"
+            } ${isMobile ? "px-4 py-2" : ""}`}
+          >
+            <span>{item.icon}</span>
+            <span>{item.name}</span>
+          </Link>
+        )
+    );
+
+  // Render auth actions (desktop + mobile)
+  const renderAuthActions = (isMobile = false) =>
+    authActions.map((action) =>
+      action.type === "button" ? (
+        <button
+          key={action.name}
+          onClick={(action as ActionButton).onClick}
+          className={`px-6 py-2 bg-[#6b2e2e] text-white rounded-full font-bold hover:bg-[#800000] transition-colors ${
+            isMobile ? "px-4 py-2" : ""
+          }`}
+        >
+          {action.name}
+        </button>
+      ) : (
+        <Link
+          key={action.name}
+          href={(action as ActionLink).href}
+          onClick={isMobile ? () => setIsOpen(false) : undefined}
+          className={`px-6 py-2 rounded-full font-bold transition-colors ${
+            action.name === "Login"
+              ? "bg-[#cfa06b] text-white hover:bg-[#b5834c]"
+              : "bg-[#6b2e2e] text-white hover:bg-[#800000]"
+          } ${isMobile ? "px-4 py-2" : ""}`}
+        >
+          {action.name}
+        </Link>
+      )
+    );
+
+  // Render user greeting with notification badge
+  const renderUserGreeting = (isMobile = false) =>
+    isAuthenticated ? (
+      <span
+        className={`relative font-semibold ${
+          isMobile ? "text-lg mt-4" : "text-sm px-4 py-2"
+        } text-[#6b2e2e] bg-[#f4e7e0]/50 rounded-full shadow-inner`}
+      >
+        Hello, {user?.username || "Seeker"}!
+        {hasNewVerse && (
+          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+        )}
+      </span>
+    ) : null;
 
   return (
     <header className={`fixed top-0 left-0 w-full z-50 ${baseClasses}`}>
@@ -98,8 +163,7 @@ const Navbar: React.FC = () => {
         >
           <div className="relative">
             <span
-              className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-              w-10 h-10 rounded-full bg-[#a17373] group-hover:bg-[#8b3d3d] ${baseClasses}`}
+              className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#a17373] group-hover:bg-[#8b3d3d] ${baseClasses}`}
             ></span>
             <span
               className={`relative z-10 text-4xl group-hover:scale-110 ${baseClasses}`}
@@ -113,57 +177,11 @@ const Navbar: React.FC = () => {
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center space-x-4">
           <div className="flex items-center space-x-4 p-2 bg-[#f4e7e0]/50 rounded-full shadow-inner">
-            {menuItems.map(
-              (item) =>
-                (!item.authenticated || isAuthenticated) && (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`relative flex items-center px-4 py-2 rounded-full font-medium transition-colors duration-300 ${
-                      pathname === item.href
-                        ? "bg-[#800000] text-white shadow-lg"
-                        : "text-[#6b2e2e] hover:bg-[#660000]/20 hover:text-white"
-                    }`}
-                  >
-                    <span className="mr-2 text-xl">{item.icon}</span>
-                    <span className="text-sm">{item.name}</span>
-                  </Link>
-                )
-            )}
+            {renderMenuItems()}
           </div>
 
-          {isAuthenticated && (
-            <span className="relative text-sm font-semibold text-[#6b2e2e] bg-[#f4e7e0]/50 px-4 py-2 rounded-full shadow-inner">
-              Hello, {user?.username || "Seeker"}!
-              {hasNewVerse && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-              )}
-            </span>
-          )}
-
-          {authActions.map((action) =>
-            action.type === "button" ? (
-              <button
-                key={action.name}
-                onClick={(action as ActionButton).onClick}
-                className="px-6 py-2 bg-[#6b2e2e] text-white rounded-full hover:bg-[#800000] shadow-lg font-bold transition-colors"
-              >
-                {action.name}
-              </button>
-            ) : (
-              <Link
-                key={action.name}
-                href={(action as ActionLink).href}
-                className={`px-6 py-2 rounded-full font-bold shadow-lg transition-colors ${
-                  action.name === "Login"
-                    ? "bg-[#cfa06b] text-white hover:bg-[#b5834c]"
-                    : "bg-[#6b2e2e] text-white hover:bg-[#800000]"
-                }`}
-              >
-                {action.name}
-              </Link>
-            )
-          )}
+          {renderUserGreeting()}
+          {renderAuthActions()}
         </div>
 
         {/* Mobile menu button */}
@@ -202,61 +220,10 @@ const Navbar: React.FC = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden py-4 bg-[#f4e7e0]/90 backdrop-blur-md rounded-b-3xl shadow-lg mt-1">
-          <div className="flex flex-col items-center space-y-4">
-            {menuItems.map(
-              (item) =>
-                (!item.authenticated || isAuthenticated) && (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className={`flex items-center space-x-2 text-[#6b2e2e] font-medium text-lg transition-colors duration-300 ${
-                      pathname === item.href
-                        ? "bg-[#800000]/80 px-4 py-2 rounded-full text-white"
-                        : "hover:bg-[#660000]/20 hover:text-white px-4 py-2 rounded-full"
-                    }`}
-                  >
-                    <span>{item.icon}</span>
-                    <span>{item.name}</span>
-                  </Link>
-                )
-            )}
-            {isAuthenticated && (
-              <span className="relative text-lg font-bold text-[#6b2e2e] mt-4">
-                Hello, {user?.username || "Seeker"}!
-                {hasNewVerse && (
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                )}
-              </span>
-            )}
-            <div className="flex space-x-4 mt-4">
-              {authActions.map((action) =>
-                action.type === "button" ? (
-                  <button
-                    key={action.name}
-                    onClick={(action as ActionButton).onClick}
-                    className="px-4 py-2 bg-[#6b2e2e] text-white rounded-full font-bold hover:bg-[#800000] transition-colors"
-                  >
-                    {action.name}
-                  </button>
-                ) : (
-                  <Link
-                    key={action.name}
-                    href={(action as ActionLink).href}
-                    onClick={() => setIsOpen(false)}
-                    className={`px-4 py-2 rounded-full font-bold transition-colors ${
-                      action.name === "Login"
-                        ? "bg-[#cfa06b] text-white hover:bg-[#b5834c]"
-                        : "bg-[#6b2e2e] text-white hover:bg-[#800000]"
-                    }`}
-                  >
-                    {action.name}
-                  </Link>
-                )
-              )}
-            </div>
-          </div>
+        <div className="md:hidden py-4 bg-[#f4e7e0]/90 backdrop-blur-md rounded-b-3xl shadow-lg mt-1 flex flex-col items-center space-y-4">
+          {renderMenuItems(true)}
+          {renderUserGreeting(true)}
+          <div className="flex space-x-4 mt-4">{renderAuthActions(true)}</div>
         </div>
       )}
     </header>

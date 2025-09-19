@@ -9,13 +9,15 @@ datasource db {
 
 /// Users table (manual signup + Google OAuth)
 model User {
-  id        String   @id @default(cuid())
-  username  String?  @unique
-  email     String?  @unique
-  password  String? // hashed password (null if user signed up with Google)
-  image     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(cuid())
+  username      String?   @unique
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  password      String? // hashed password (null if user signed up with Google)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Relations
   accounts  Account[]
@@ -70,7 +72,7 @@ model Note {
   book      String
   chapter   Int
   verse     Int
-  content   String // Slate JSON string
+  content   Json 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

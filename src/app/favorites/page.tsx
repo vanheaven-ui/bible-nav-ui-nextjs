@@ -12,13 +12,13 @@ interface FavoriteVerse {
   user_id: number;
   book: string;
   chapter: number;
-  verse_number: number;
-  verse_text: string;
+  verseNumber: number;
+  verseText: string;
   created_at: string;
 }
 
 const FavoritesPage: React.FC = () => {
-  const { token, isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const router = useRouter();
 
   const [favoriteVerses, setFavoriteVerses] = useState<FavoriteVerse[]>([]);
@@ -34,14 +34,10 @@ const FavoritesPage: React.FC = () => {
 
   useEffect(() => {
     const fetchFavorites = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
       setLoading(true);
       setError(null);
       try {
-        const response = await getFavoriteVerses(token);
+        const response = await getFavoriteVerses(); // ✅ no token needed
         setFavoriteVerses(response.verses);
       } catch (err: unknown) {
         console.error("Failed to fetch favorite verses:", err);
@@ -51,18 +47,13 @@ const FavoritesPage: React.FC = () => {
       }
     };
     fetchFavorites();
-  }, [token]);
+  }, []);
 
   const handleDelete = async (verseId: number) => {
-    if (!token) {
-      setError("Not authenticated. Please log in.");
-      return;
-    }
-
     setDeleteLoadingId(verseId);
     setError(null);
     try {
-      await deleteFavoriteVerse(token, verseId);
+      await deleteFavoriteVerse(verseId); // ✅ no token needed
       setFavoriteVerses((prev) => prev.filter((v) => v.id !== verseId));
     } catch (err: unknown) {
       console.error("Failed to delete favorite verse:", err);
@@ -77,7 +68,7 @@ const FavoritesPage: React.FC = () => {
       {/* Background Image and Overlay */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/parchment-bg.jpg')" }}
+        style={{ backgroundImage: "url('/images/parchment-bg.png')" }}
       />
       <div className="absolute inset-0 -z-10 bg-[#f9f5e7]/85" />
 
@@ -143,10 +134,10 @@ const FavoritesPage: React.FC = () => {
                 >
                   <div>
                     <p className="text-[#6b705c] font-bold text-xl">
-                      {verse.book} {verse.chapter}:{verse.verse_number}
+                      {verse.book} {verse.chapter}:{verse.verseNumber}
                     </p>
                     <p className="mt-2 text-[#495057] italic leading-relaxed">
-                      &quot;{verse.verse_text}&quot;
+                      &quot;{verse.verseText}&quot;
                     </p>
                     <p className="mt-4 text-[#d4af37] text-sm font-semibold">
                       Saved:{" "}

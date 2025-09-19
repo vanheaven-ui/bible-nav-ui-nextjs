@@ -107,7 +107,7 @@ const VerseNotePage: React.FC = () => {
       const token = localStorage.getItem("authToken");
       if (token) {
         try {
-          const existingNotes = await getNotes(token, {
+          const existingNotes = await getNotes({
             book: bookName,
             chapter: Number(chapterNumber),
             verse: Number(verseNumber),
@@ -141,7 +141,7 @@ const VerseNotePage: React.FC = () => {
       return setError("Note is empty and cannot be saved.");
 
     try {
-      const newNote = await addNote(token, {
+      const newNote = await addNote({
         book: bookName,
         chapter: Number(chapterNumber),
         verse: Number(verseNumber),
@@ -167,7 +167,7 @@ const VerseNotePage: React.FC = () => {
     if (!window.confirm("Are you sure you want to delete this note?")) return;
 
     try {
-      await deleteNote(token, noteId);
+      await deleteNote(noteId);
       setUserNotes((prev) => prev.filter((n) => n.id !== noteId));
       setError(null);
     } catch (err) {

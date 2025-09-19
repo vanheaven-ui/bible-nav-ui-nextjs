@@ -52,7 +52,7 @@ const HomePage: React.FC = () => {
       {/* Background Image */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/parchment-bg.jpg')" }} // place parchment-bg.jpg inside /public/images
+        style={{ backgroundImage: "url('/images/parchment-bg.png')" }} 
       ></div>
 
       {/* Transparent parchment overlay */}
@@ -114,7 +114,7 @@ const HomePage: React.FC = () => {
       <div className="flex justify-center mb-16">
         <button
           onClick={scrollToContent}
-          className="relative inline-flex items-center gap-3 px-10 py-4 text-lg font-semibold text-white bg-[#a4161a] rounded-full shadow-xl hover:bg-[#822121] transition-all duration-300"
+          className="relative inline-flex items-center gap-3 px-10 py-2 text-lg font-semibold text-white bg-[#a4161a] rounded-full shadow-xl hover:bg-[#822121] transition-all duration-300"
         >
           Explore Your Journey
           <span className="text-2xl">↓</span>
