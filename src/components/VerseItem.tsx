@@ -4,10 +4,20 @@ import React, { forwardRef } from "react";
 import { Verse } from "@/lib/bibleApi";
 import { Note } from "@/lib/backendApi";
 import { Heart, Pencil } from "lucide-react";
+import { Descendant } from "slate";
 
-interface SlateNode {
-  children: { text: string }[];
+// IMPORTANT: Assume 'FormattedText' is available (e.g., from custom.d.ts)
+// We define it here for completeness within this file's context:
+interface FormattedText {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
 }
+
+// Type Guard to check if a Descendant is a Text node
+const isTextNode = (node: Descendant): node is FormattedText => {
+  return (node as FormattedText).text !== undefined;
+};
 
 interface VerseItemProps {
   verse: Verse;
@@ -22,14 +32,35 @@ interface VerseItemProps {
 
 const VerseItem = forwardRef<HTMLDivElement, VerseItemProps>(
   ({ verse, isFav, userNote, toggleFavorite, onClick, isCurrent }, ref) => {
+    // RESOLVED FIX: Safely extract text from the Slate structure using a Type Guard.
     const getPlainText = (content: string): string => {
       try {
-        const parsedContent: SlateNode[] = JSON.parse(content);
+        // Explicitly cast the parsed content as an array of Slate Descendant nodes
+        const parsedContent: Descendant[] = JSON.parse(content) as Descendant[];
+
         return parsedContent
-          .map((node) => node.children.map((child) => child.text).join(""))
+          .map((node: Descendant) => {
+            // Check if the node is a Text leaf node
+            if (isTextNode(node)) {
+              return node.text;
+            }
+
+            // If it's an Element node (like 'paragraph'), it should have children
+            // We use the 'in' operator to check for the 'children' property safely
+            if ("children" in node && Array.isArray(node.children)) {
+              // Recursively map the element's children, ensuring they are also checked
+              return node.children
+                .map((child: Descendant) =>
+                  isTextNode(child) ? child.text : ""
+                )
+                .join("");
+            }
+            return "";
+          })
           .join(" ");
       } catch (e) {
-        console.error("Failed to parse note content:", e);
+        // Log the error for debugging
+        console.error("Failed to parse Slate content:", e);
         return "Error loading note content.";
       }
     };
@@ -53,6 +84,7 @@ const VerseItem = forwardRef<HTMLDivElement, VerseItemProps>(
             <div
               className="p-1 rounded-full text-[#6b705c] z-100"
               data-tooltip-id="note-tooltip"
+              // The argument is now correctly handled by the type guard within getPlainText
               data-tooltip-content={getPlainText(userNote.content)}
             >
               <Pencil className="h-4 w-4" />
@@ -79,5 +111,7 @@ const VerseItem = forwardRef<HTMLDivElement, VerseItemProps>(
     );
   }
 );
+
+VerseItem.displayName = "VerseItem";
 
 export default VerseItem;

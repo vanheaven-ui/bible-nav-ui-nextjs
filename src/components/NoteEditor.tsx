@@ -6,10 +6,15 @@ import {
   Descendant,
   Editor,
   Transforms,
-  isEditor,
   Element as SlateElement,
 } from "slate";
-import { Slate, Editable, withReact } from "slate-react";
+import {
+  Slate,
+  Editable,
+  withReact,
+  RenderElementProps,
+  RenderLeafProps,
+} from "slate-react";
 import { Bold, Italic, List, ListOrdered } from "lucide-react";
 
 interface NoteEditorProps {
@@ -18,7 +23,9 @@ interface NoteEditorProps {
   placeholder: string;
 }
 
-const LIST_TYPES = ["numbered-list", "bulleted-list"];
+// Define allowed block types
+type BlockType = "paragraph" | "list-item" | "numbered-list" | "bulleted-list";
+const LIST_TYPES: BlockType[] = ["numbered-list", "bulleted-list"];
 
 const NoteEditor: React.FC<NoteEditorProps> = ({
   initialContent,
@@ -27,54 +34,58 @@ const NoteEditor: React.FC<NoteEditorProps> = ({
 }) => {
   const [editor] = useState(() => withReact(createEditor()));
 
-  const toggleMark = useCallback((editor: Editor, format: string) => {
-    const isActive = isMarkActive(editor, format);
-    if (isActive) {
-      Editor.removeMark(editor, format);
-    } else {
-      Editor.addMark(editor, format, true);
-    }
-  }, []);
-
   const isMarkActive = useCallback((editor: Editor, format: string) => {
     const marks = Editor.marks(editor);
     return marks ? marks[format as keyof typeof marks] === true : false;
   }, []);
 
-  const isBlockActive = useCallback((editor: Editor, format: string) => {
+  const toggleMark = useCallback(
+    (editor: Editor, format: string) => {
+      const isActive = isMarkActive(editor, format);
+      if (isActive) {
+        Editor.removeMark(editor, format);
+      } else {
+        Editor.addMark(editor, format, true);
+      }
+    },
+    [isMarkActive]
+  );
+
+  const isBlockActive = useCallback((editor: Editor, format: BlockType) => {
     const { selection } = editor;
     if (!selection) return false;
 
     const [match] = Array.from(
       Editor.nodes(editor, {
         at: Editor.unhangRange(editor, selection),
-        match: (n) =>
-          !Editor.isEditor(n) && SlateElement.isElement(n) && n.type === format,
+        match: (n) => SlateElement.isElement(n) && n.type === format,
       })
     );
     return !!match;
   }, []);
 
   const toggleBlock = useCallback(
-    (editor: Editor, format: string) => {
+    (editor: Editor, format: BlockType) => {
       const isActive = isBlockActive(editor, format);
       const isList = LIST_TYPES.includes(format);
 
       Transforms.unwrapNodes(editor, {
         match: (n) =>
-          !Editor.isEditor(n) &&
-          SlateElement.isElement(n) &&
-          LIST_TYPES.includes(n.type),
+          SlateElement.isElement(n) && LIST_TYPES.includes(n.type as BlockType),
         split: true,
       });
 
       const newProperties: Partial<SlateElement> = {
-        type: (isActive ? "paragraph" : isList ? "list-item" : format) as any, 
+        type: (isActive
+          ? "paragraph"
+          : isList
+          ? "list-item"
+          : format) as BlockType,
       };
       Transforms.setNodes(editor, newProperties);
 
       if (!isActive && isList) {
-        const block = { type: format, children: [] } as SlateElement;
+        const block: SlateElement = { type: format, children: [] };
         Transforms.wrapNodes(editor, block);
       }
     },
@@ -82,8 +93,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({
   );
 
   const renderElement = useCallback(
-    ({ attributes, children, element }: any) => {
-      // 'any' should be replaced with proper types
+    ({ attributes, children, element }: RenderElementProps) => {
       switch (element.type) {
         case "list-item":
           return <li {...attributes}>{children}</li>;
@@ -98,16 +108,18 @@ const NoteEditor: React.FC<NoteEditorProps> = ({
     []
   );
 
-  const renderLeaf = useCallback(({ attributes, children, leaf }: any) => {
-    // 'any' should be replaced with proper types
-    if (leaf.bold) {
-      children = <strong>{children}</strong>;
-    }
-    if (leaf.italic) {
-      children = <em>{children}</em>;
-    }
-    return <span {...attributes}>{children}</span>;
-  }, []);
+  const renderLeaf = useCallback(
+    ({ attributes, children, leaf }: RenderLeafProps) => {
+      if (leaf.bold) {
+        children = <strong>{children}</strong>;
+      }
+      if (leaf.italic) {
+        children = <em>{children}</em>;
+      }
+      return <span {...attributes}>{children}</span>;
+    },
+    []
+  );
 
   return (
     <Slate

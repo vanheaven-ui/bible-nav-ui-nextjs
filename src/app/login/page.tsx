@@ -8,7 +8,7 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 
 const LoginPage: React.FC = () => {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession(); // Removed unused 'session'
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,9 +54,7 @@ const LoginPage: React.FC = () => {
     setGoogleLoading(true);
     setError(null);
 
-    // Redirect mode is secure and stable
     signIn("google", { callbackUrl: "/" });
-    // No need to check return value in redirect mode
   };
 
   if (status === "loading") {
@@ -113,10 +111,7 @@ const LoginPage: React.FC = () => {
               />
               <button
                 type="button"
-                onMouseDown={() => setShowPassword(true)}
-                onMouseUp={() => setShowPassword(false)}
-                onTouchStart={() => setShowPassword(true)}
-                onTouchEnd={() => setShowPassword(false)}
+                onClick={() => setShowPassword((prev) => !prev)}
                 className="absolute inset-y-0 right-0 top-6 flex items-center pr-3 text-[#6b705c] outline-none hover:text-[#495057]"
               >
                 {showPassword ? (
@@ -147,7 +142,7 @@ const LoginPage: React.FC = () => {
           </form>
 
           <div className="mt-4 text-center text-sm text-[#495057] md:text-left">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
               href="/signup"
               className="font-semibold text-[#a4161a] hover:text-[#822121]"

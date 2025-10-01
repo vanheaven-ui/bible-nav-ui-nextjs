@@ -1,7 +1,5 @@
 import { Descendant } from "slate";
 
-const BACKEND_API_BASE_URL = "/api";
-
 export interface User {
   id: string;
   username?: string | null;
@@ -28,7 +26,7 @@ export interface ErrorResponse {
 }
 
 export interface FavoriteVerse {
-  id: number; 
+  id: number;
   userId?: string;
   book: string;
   chapter: number;
@@ -43,21 +41,19 @@ export interface Note {
   book: string;
   chapter: number;
   verse: number;
-  content: Descendant[];
+  content: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-// Helper to recursively convert ISO strings to Date
 function parseDates<T>(obj: T): T {
   if (obj === null || obj === undefined) return obj;
-
   if (Array.isArray(obj)) {
     return obj.map(parseDates) as unknown as T;
   } else if (typeof obj === "object") {
-    const result: any = {};
-    for (const key in obj) {
-      const value = (obj as any)[key];
+    const result: Record<string, unknown> = {};
+    for (const key in obj as object) {
+      const value = (obj as Record<string, unknown>)[key];
       if (
         typeof value === "string" &&
         /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d+Z/.test(value)
@@ -67,7 +63,7 @@ function parseDates<T>(obj: T): T {
         result[key] = parseDates(value);
       }
     }
-    return result;
+    return result as T;
   }
   return obj;
 }
@@ -89,7 +85,7 @@ async function makeLocalApiRequest<T>(
 
   if (!response.ok) {
     try {
-      const errorData = JSON.parse(text);
+      const errorData: { error?: string } = JSON.parse(text);
       throw new Error(errorData.error || `API Error: ${response.status}`);
     } catch {
       throw new Error(text || `API Error: ${response.status}`);
@@ -98,13 +94,11 @@ async function makeLocalApiRequest<T>(
 
   try {
     const json = JSON.parse(text);
-    return parseDates(json) as T; // Convert date strings to Date
+    return parseDates(json) as T;
   } catch {
     throw new Error(`Expected JSON but received non-JSON response: ${text}`);
   }
 }
-
-// ----------------- API FUNCTIONS -----------------
 
 export async function loginUser(
   email: string,
@@ -129,7 +123,6 @@ export async function signupUser(
 }
 
 export async function addFavoriteVerse(
-  // The userId is omitted here and will be handled by the server
   verseDetails: Omit<FavoriteVerse, "id" | "userId" | "createdAt">
 ): Promise<FavoriteVerse> {
   return makeLocalApiRequest<FavoriteVerse>(

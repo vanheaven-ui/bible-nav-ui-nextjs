@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import * as api from "@/lib/backendApi";
-import { useAuthStore, User } from "@/store/authStore";
+import { useAuthStore } from "@/store/authStore";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 
 const SignupPage: React.FC = () => {
@@ -19,7 +19,6 @@ const SignupPage: React.FC = () => {
 
   const [showPassword, setShowPassword] = useState(false);
 
-  const { setSessionUser } = useAuthStore();
   const { data: session } = useSession();
   const router = useRouter();
 

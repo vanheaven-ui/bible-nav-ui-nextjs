@@ -203,7 +203,7 @@ const ChapterVersesPage: React.FC = () => {
           book: decodedBookName,
           chapter: chapterNum,
           verse: verse.verse_number,
-          content: currentNoteContent,
+          content: JSON.stringify(currentNoteContent),
         });
         setUserNotes((prev) => [...prev, newNote]);
 
