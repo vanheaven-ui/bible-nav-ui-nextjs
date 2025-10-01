@@ -4,9 +4,9 @@ import { auth } from "@/lib/auth";
 
 export async function DELETE(
   req: NextRequest,
-  context: { params: Record<string, string> }
+  { params }: { params: { id: string } } 
 ) {
-  const id = context.params.id;
+  const id = params.id;
 
   const session = await auth();
   if (!session?.user?.id) {

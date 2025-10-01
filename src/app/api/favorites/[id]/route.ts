@@ -2,49 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-// -------------------------------------------------------------
-// DELETE /api/favorites/[id]
-export async function DELETE(
-  req: NextRequest,
-  context: { params: Record<string, string> }
-) {
-  const id = context.params.id;
-
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const userId = session.user.id;
-
-  try {
-    const deleted = await prisma.favorite.deleteMany({
-      where: { id, userId },
-    });
-
-    if (deleted.count === 0) {
-      return NextResponse.json(
-        { error: "Favorite not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ message: "Deleted successfully" });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to delete favorite" },
-      { status: 500 }
-    );
-  }
-}
-
-// -------------------------------------------------------------
-// GET /api/favorites/[id]
+// Dynamic route handlers receive a single argument object
+// containing both `request` and `params` destructured
 export async function GET(
   req: NextRequest,
-  context: { params: Record<string, string> }
+  { params }: { params: { id: string } }
 ) {
-  const id = context.params.id;
+  const id = params.id;
 
   const session = await auth();
   if (!session?.user?.id) {
@@ -74,13 +38,45 @@ export async function GET(
   }
 }
 
-// -------------------------------------------------------------
-// PATCH /api/favorites/[id]
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id;
+
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const userId = session.user.id;
+
+  try {
+    const deleted = await prisma.favorite.deleteMany({
+      where: { id, userId },
+    });
+
+    if (deleted.count === 0) {
+      return NextResponse.json(
+        { error: "Favorite not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ message: "Deleted successfully" });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Failed to delete favorite" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(
   req: NextRequest,
-  context: { params: Record<string, string> }
+  { params }: { params: { id: string } }
 ) {
-  const id = context.params.id;
+  const id = params.id;
 
   const session = await auth();
   if (!session?.user?.id) {
