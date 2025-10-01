@@ -6,23 +6,37 @@ interface Params {
   params: { id: string };
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, context: Params) {
+  // Destructure params safely
+  const { params } = context;
+  const id = params.id;
+
+  // Get session from NextAuth v5
   const session = await auth();
 
-  if (!session) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const userId = session.user.id;
-  const { id } = params;
 
-  const deleted = await prisma.favorite.deleteMany({
-    where: { id, userId },
-  });
+  try {
+    const deleted = await prisma.favorite.deleteMany({
+      where: { id, userId },
+    });
 
-  if (deleted.count === 0) {
-    return NextResponse.json({ error: "Favorite not found" }, { status: 404 });
+    if (deleted.count === 0) {
+      return NextResponse.json(
+        { error: "Favorite not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ message: "Deleted successfully" });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Failed to delete favorite" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ message: "Deleted successfully" });
 }

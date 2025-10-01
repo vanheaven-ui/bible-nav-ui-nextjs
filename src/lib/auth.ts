@@ -1,5 +1,4 @@
-// src/lib/auth.ts
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import { PrismaAdapter } from "@auth/prisma-adapter"; 
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
@@ -8,8 +7,6 @@ import NextAuth from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import type { Session, User } from "next-auth";
 
-// -------------------------------------------------------------
-// Custom user/session interfaces (optional, for stricter typing)
 export interface AuthUser extends User {
   id: string;
   name?: string | null;
@@ -20,10 +17,9 @@ export interface CustomSession extends Session {
   user: AuthUser;
 }
 
-// -------------------------------------------------------------
 // NextAuth v5 config
 const config = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma), 
 
   providers: [
     GoogleProvider({
