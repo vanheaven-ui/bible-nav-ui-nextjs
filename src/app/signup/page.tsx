@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import * as api from "@/lib/backendApi";
-import { useAuthStore } from "@/store/authStore";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 
 const SignupPage: React.FC = () => {
@@ -16,13 +15,11 @@ const SignupPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [showPassword, setShowPassword] = useState(false);
 
   const { data: session } = useSession();
   const router = useRouter();
 
-  // Redirect if already logged in
   useEffect(() => {
     if (session?.user) {
       router.push("/");
@@ -41,30 +38,20 @@ const SignupPage: React.FC = () => {
     }
 
     try {
-      // Step 1: Call the custom backend API to create the user
-      const signupResponse = await api.signupUser(username, email, password);
-      console.log("Signup successful, user created:", signupResponse);
+      await api.signupUser(username, email, password);
 
-      // Step 2: Once the user is created in the database,
-      // call NextAuth's signIn function to handle the session.
       const result = await signIn("credentials", {
         redirect: false,
         email,
         password,
       });
 
-      if (result?.ok) {
-        // NextAuth's session provider will automatically update the session.
-        // The useEffect hook will then handle the redirection.
-        console.log("NextAuth signIn successful.");
-      } else {
-        // This handles an edge case where signup succeeds but signIn fails
+      if (!result?.ok) {
         setError(
-          result?.error || "Login failed after signup. Please try logging in."
+          result?.error || "Login failed after signup. Please try again."
         );
       }
     } catch (err: unknown) {
-      console.error("Signup failed:", err);
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred."
       );
@@ -78,8 +65,7 @@ const SignupPage: React.FC = () => {
     setError(null);
     try {
       await signIn("google", { callbackUrl: "/" });
-    } catch (err: unknown) {
-      console.error("Google Sign-Up failed:", err);
+    } catch {
       setError("Google Sign-Up failed. Please try again.");
       setGoogleLoading(false);
     }
@@ -91,12 +77,11 @@ const SignupPage: React.FC = () => {
         className="absolute inset-0 bg-cover bg-center -z-20"
         style={{ backgroundImage: "url('/images/parchment-bg.png')" }}
       />
-      <div className="absolute inset-0 bg-[#f9f5e7]/80 -z-10"></div>
-      <div className="absolute top-1/4 left-1/3 w-[30vw] h-[30vw] rounded-full bg-[#d4af37]/20 blur-[120px] -z-0"></div>
-      <div className="absolute bottom-1/4 right-1/3 w-[35vw] h-[35vw] rounded-full bg-[#a4161a]/20 blur-[150px] -z-0"></div>
+      <div className="absolute inset-0 bg-[#f9f5e7]/80 -z-10" />
+      <div className="absolute top-1/4 left-1/3 w-[30vw] h-[30vw] rounded-full bg-[#d4af37]/20 blur-[120px] -z-0" />
+      <div className="absolute bottom-1/4 right-1/3 w-[35vw] h-[35vw] rounded-full bg-[#a4161a]/20 blur-[150px] -z-0" />
 
       <div className="relative z-10 max-w-4xl w-full px-6 bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-[#6b705c]/20 flex flex-col md:flex-row overflow-hidden">
-        {/* Signup Form */}
         <div className="flex-1 p-6 md:border-r border-[#6b705c]/20">
           <h2 className="text-2xl md:text-3xl font-extrabold text-[#6b705c] mb-6 text-center md:text-left">
             Create your account
@@ -130,7 +115,6 @@ const SignupPage: React.FC = () => {
               />
             </div>
 
-            {/* Password input with show/hide functionality */}
             <div className="relative">
               <label className="block text-sm font-medium text-[#495057] mb-1">
                 Password
@@ -145,17 +129,13 @@ const SignupPage: React.FC = () => {
               />
               <button
                 type="button"
-                onMouseDown={() => setShowPassword(true)}
-                onMouseUp={() => setShowPassword(false)}
-                onTouchStart={() => setShowPassword(true)}
-                onTouchEnd={() => setShowPassword(false)}
+                onClick={() => setShowPassword((prev) => !prev)}
                 className="absolute inset-y-0 right-0 top-6 flex items-center pr-3 text-[#6b705c] hover:text-[#495057] focus:outline-none"
               >
                 {showPassword ? <EyeOff /> : <Eye />}
               </button>
             </div>
 
-            {/* Confirm Password input with show/hide functionality */}
             <div className="relative">
               <label className="block text-sm font-medium text-[#495057] mb-1">
                 Confirm Password
@@ -170,10 +150,7 @@ const SignupPage: React.FC = () => {
               />
               <button
                 type="button"
-                onMouseDown={() => setShowPassword(true)}
-                onMouseUp={() => setShowPassword(false)}
-                onTouchStart={() => setShowPassword(true)}
-                onTouchEnd={() => setShowPassword(false)}
+                onClick={() => setShowPassword((prev) => !prev)}
                 className="absolute inset-y-0 right-0 top-6 flex items-center pr-3 text-[#6b705c] hover:text-[#495057] focus:outline-none"
               >
                 {showPassword ? <EyeOff /> : <Eye />}
@@ -210,7 +187,6 @@ const SignupPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Google Sign Up */}
         <div className="flex-1 p-6 flex flex-col items-center justify-center bg-[#f9f5e7]/50">
           <h2 className="text-xl md:text-2xl font-bold text-[#495057] mb-6 text-center">
             Or sign up with Google
@@ -220,7 +196,6 @@ const SignupPage: React.FC = () => {
             disabled={googleLoading}
             className="w-full flex justify-center items-center gap-2 py-3 px-4 text-sm font-semibold rounded-xl text-white bg-[#d4af37] hover:bg-[#c89f2e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#a4161a] transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {/* Google Icon */}
             <svg
               className="w-5 h-5"
               xmlns="http://www.w3.org/2000/svg"

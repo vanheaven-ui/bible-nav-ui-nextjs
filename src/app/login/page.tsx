@@ -8,7 +8,7 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 
 const LoginPage: React.FC = () => {
   const router = useRouter();
-  const { status } = useSession(); // Removed unused 'session'
+  const { status } = useSession();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,7 +40,6 @@ const LoginPage: React.FC = () => {
       if (result?.error) {
         setError(result.error);
       }
-      // Success handled by useEffect redirect
     } catch (err) {
       console.error("Login error:", err);
       setError("An unexpected error occurred. Please try again.");
@@ -49,11 +48,10 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  // Handle Google sign-in with redirect
+  // Handle Google sign-in
   const handleGoogleSignIn = () => {
     setGoogleLoading(true);
     setError(null);
-
     signIn("google", { callbackUrl: "/" });
   };
 
@@ -94,6 +92,7 @@ const LoginPage: React.FC = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 className="focus:ring-[#d4af37] sm:text-sm block w-full rounded-xl border border-[#6b705c]/30 px-4 py-3 text-gray-900 placeholder-gray-400 outline-none transition focus:border-[#d4af37] focus:ring-2"
+                disabled={googleLoading} 
               />
             </div>
 
@@ -108,11 +107,13 @@ const LoginPage: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 className="focus:ring-[#d4af37] sm:text-sm block w-full rounded-xl border border-[#6b705c]/30 px-4 py-3 pr-12 text-gray-900 placeholder-gray-400 outline-none transition focus:border-[#d4af37] focus:ring-2"
+                disabled={googleLoading} 
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
                 className="absolute inset-y-0 right-0 top-6 flex items-center pr-3 text-[#6b705c] outline-none hover:text-[#495057]"
+                disabled={googleLoading} 
               >
                 {showPassword ? (
                   <EyeOff className="h-5 w-5" />
@@ -128,7 +129,7 @@ const LoginPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || googleLoading} 
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a4161a] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#822121] focus:outline-none focus:ring-2 focus:ring-[#d4af37] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
@@ -159,7 +160,7 @@ const LoginPage: React.FC = () => {
           </h2>
           <button
             onClick={handleGoogleSignIn}
-            disabled={googleLoading}
+            disabled={googleLoading || loading} 
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#d4af37] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#c89f2e] focus:outline-none focus:ring-2 focus:ring-[#a4161a] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {googleLoading ? (
