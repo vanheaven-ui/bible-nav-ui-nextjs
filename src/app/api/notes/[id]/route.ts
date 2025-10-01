@@ -1,26 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerAuthSession } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 
 interface Params {
   params: { id: string };
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
-  const session = await getServerAuthSession();
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const session = await auth();
 
-  if (!session)
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const userId = session.user.id;
-  const { id } = params;
+  try {
+    const userId = session.user.id;
+    const { id } = params;
 
-  const deleted = await prisma.note.deleteMany({
-    where: { id, userId },
-  });
+    if (!id) {
+      return NextResponse.json({ error: "Missing note id" }, { status: 400 });
+    }
 
-  if (deleted.count === 0)
-    return NextResponse.json({ error: "Note not found" }, { status: 404 });
+    const deleted = await prisma.note.deleteMany({
+      where: { id, userId },
+    });
 
-  return NextResponse.json({ message: "Deleted successfully" });
+    if (deleted.count === 0) {
+      return NextResponse.json({ error: "Note not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(
+      { message: "Deleted successfully" },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("DELETE /notes/[id] error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete note" },
+      { status: 500 }
+    );
+  }
 }

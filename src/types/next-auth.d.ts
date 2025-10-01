@@ -1,25 +1,29 @@
 import { DefaultSession, DefaultUser } from "next-auth";
 
+// -------------------------------------------------------------
+// Module augmentation for `next-auth`
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      username?: string;
-      createdAt?: string;
-      updatedAt?: string
-    } & DefaultSession["user"]; // <-- this merges in `name` and `email`
+    } & DefaultSession["user"];
     accessToken?: string;
   }
 
   interface User extends DefaultUser {
     id: string;
-    username?: string;
-    createdAt?: string;
+    username?: string | null;
+    createdAt?: Date;
   }
+}
 
+// -------------------------------------------------------------
+// Module augmentation for `next-auth/jwt`
+declare module "next-auth/jwt" {
   interface JWT {
     id: string;
+    username?: string | null;
     accessToken?: string;
-    createdAt?: string;
+    createdAt?: Date;
   }
 }

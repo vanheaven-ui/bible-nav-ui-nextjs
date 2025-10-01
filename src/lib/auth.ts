@@ -1,16 +1,30 @@
+// src/lib/auth.ts
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
-import {
-  NextAuthOptions,
-  Session,
-  getServerSession as originalGetServerSession,
-} from "next-auth";
+import NextAuth from "next-auth";
+import type { JWT } from "next-auth/jwt";
+import type { Session, User } from "next-auth";
 
-export const authOptions: NextAuthOptions = {
+// -------------------------------------------------------------
+// Custom user/session interfaces (optional, for stricter typing)
+export interface AuthUser extends User {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+}
+
+export interface CustomSession extends Session {
+  user: AuthUser;
+}
+
+// -------------------------------------------------------------
+// NextAuth v5 config
+const config = {
   adapter: PrismaAdapter(prisma),
+
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -27,8 +41,17 @@ export const authOptions: NextAuthOptions = {
         },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) return null;
+      async authorize(
+        credentials: Record<string, unknown> | undefined
+      ): Promise<AuthUser | null> {
+        if (
+          !credentials?.email ||
+          !credentials?.password ||
+          typeof credentials.email !== "string" ||
+          typeof credentials.password !== "string"
+        ) {
+          return null;
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
@@ -44,41 +67,47 @@ export const authOptions: NextAuthOptions = {
 
         return {
           id: user.id,
-          name: user.username,
-          email: user.email,
+          name: user.username ?? null,
+          email: user.email ?? null,
         };
       },
     }),
   ],
 
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
   },
 
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: JWT; user?: AuthUser }): Promise<JWT> {
       if (user) {
         token.id = user.id;
-        token.name = user.name;
-        token.email = user.email;
+        token.name = user.name ?? undefined;
+        token.email = user.email ?? undefined;
       }
       return token;
     },
 
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.name = token.name;
-        session.user.email = token.email;
+    async session({
+      session,
+      token,
+    }: {
+      session: Session;
+      token: JWT;
+    }): Promise<CustomSession> {
+      if (session.user && token.id) {
+        (session.user as AuthUser).id = token.id as string;
+        (session.user as AuthUser).name = (token.name ?? null) as string | null;
+        (session.user as AuthUser).email = (token.email ?? null) as
+          | string
+          | null;
       }
-      return session;
+
+      return session as CustomSession;
     },
   },
 };
 
-/**
- * Strongly typed wrapper for getServerSession with our custom Session type.
- */
-export async function getServerAuthSession(): Promise<Session | null> {
-  return originalGetServerSession(authOptions);
-}
+// -------------------------------------------------------------
+// V5 Export (auth + handlers)
+export const { handlers, auth } = NextAuth(config);

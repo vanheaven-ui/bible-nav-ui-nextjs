@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerAuthSession } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 
 interface Params {
   params: { id: string };
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
-  const session = await getServerAuthSession();
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const session = await auth();
 
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = session.user.id; 
+  const userId = session.user.id;
   const { id } = params;
 
   const deleted = await prisma.favorite.deleteMany({
