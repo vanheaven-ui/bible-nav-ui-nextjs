@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-// Dynamic route handlers receive a single argument object
-// containing both `request` and `params` destructured
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// Define the type for the context object to ensure type safety and compiler compliance
+interface RouteContext {
+  params: { id: string };
+}
+
+// ---------------------------------------------------------------------------------
+// FIX: Corrected signature for GET (Next.js expects Request and Context as two args)
+export async function GET(req: NextRequest, context: RouteContext) {
+  const { params } = context;
   const id = params.id;
 
   const session = await auth();
+  // Use optional chaining with a check for the user's ID
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -38,10 +42,10 @@ export async function GET(
   }
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// ---------------------------------------------------------------------------------
+// FIX: Corrected signature for DELETE
+export async function DELETE(req: NextRequest, context: RouteContext) {
+  const { params } = context;
   const id = params.id;
 
   const session = await auth();
@@ -72,10 +76,10 @@ export async function DELETE(
   }
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// ---------------------------------------------------------------------------------
+// FIX: Corrected signature for PATCH
+export async function PATCH(req: NextRequest, context: RouteContext) {
+  const { params } = context;
   const id = params.id;
 
   const session = await auth();
