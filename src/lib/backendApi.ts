@@ -1,3 +1,5 @@
+import { Descendant } from "slate";
+
 const BACKEND_API_BASE_URL = "/api";
 
 export interface User {
@@ -26,8 +28,8 @@ export interface ErrorResponse {
 }
 
 export interface FavoriteVerse {
-  id: string;
-  userId: string;
+  id: number; 
+  userId?: string;
   book: string;
   chapter: number;
   verseNumber: number;
@@ -41,7 +43,7 @@ export interface Note {
   book: string;
   chapter: number;
   verse: number;
-  content: string;
+  content: Descendant[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -127,6 +129,7 @@ export async function signupUser(
 }
 
 export async function addFavoriteVerse(
+  // The userId is omitted here and will be handled by the server
   verseDetails: Omit<FavoriteVerse, "id" | "userId" | "createdAt">
 ): Promise<FavoriteVerse> {
   return makeLocalApiRequest<FavoriteVerse>(

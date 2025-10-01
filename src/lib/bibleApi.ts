@@ -227,6 +227,7 @@ export async function fetchVerseOfTheDay(options?: {
       throw new Error(
         `Fetch failed: ${response.status} ${response.statusText}`
       );
+    
     const data = (await response.json()) as VerseOfTheDay;
 
     // Save to cache

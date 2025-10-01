@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   fetchVerseOfTheDay,
   VerseDetails,
@@ -12,6 +12,14 @@ const useVerse = () => {
   const [error, setError] = useState<string | null>(null);
   const { setLastUpdated, clearNewVerse } = useVerseStore();
 
+  // FIX 1: State variable to manually trigger a re-fetch
+  const [fetchTrigger, setFetchTrigger] = useState(0);
+
+  // FIX 2: Memoized function to increment the trigger state
+  const refreshVerse = useCallback(() => {
+    setFetchTrigger((prev) => prev + 1);
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     const signal = controller.signal;
@@ -20,13 +28,19 @@ const useVerse = () => {
       setLoading(true);
       setError(null);
 
+      console.log("Fetching Verse of the Day (Trigger:", fetchTrigger, ")");
+
       try {
+        // We ensure we pass a new AbortSignal for the current fetch
         const data: VerseOfTheDay | null = await fetchVerseOfTheDay({ signal });
 
         if (data?.verse?.details) {
           setVerseData(data.verse.details);
-          const today = new Date().toISOString().split("T")[0];
-          setLastUpdated(today);
+          // Only update last updated if fetch was successful (and it's the main daily fetch)
+          if (fetchTrigger === 0) {
+            const today = new Date().toISOString().split("T")[0];
+            setLastUpdated(today);
+          }
         } else {
           setVerseData(null);
           setError("Failed to load Verse of the Day. Please try again later.");
@@ -46,15 +60,22 @@ const useVerse = () => {
     };
 
     getVerse();
-    clearNewVerse();
+
+    // Clear new verse notification only on the initial load (fetchTrigger === 0)
+    // Subsequent manual refreshes should not clear notifications unless intended.
+    if (fetchTrigger === 0) {
+      clearNewVerse();
+    }
 
     // Cleanup: abort fetch if component unmounts
     return () => {
       controller.abort();
     };
-  }, [setLastUpdated, clearNewVerse]);
 
-  return { verseData, loading, error };
+    // FIX 3: Add fetchTrigger to dependency array to re-run useEffect when refreshVerse is called
+  }, [setLastUpdated, clearNewVerse, fetchTrigger]);
+
+  return { verseData, loading, error, refreshVerse };
 };
 
 export default useVerse;

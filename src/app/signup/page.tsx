@@ -23,25 +23,12 @@ const SignupPage: React.FC = () => {
   const { data: session } = useSession();
   const router = useRouter();
 
-  // If already logged in via NextAuth session
+  // Redirect if already logged in
   useEffect(() => {
     if (session?.user) {
-      const user: User = {
-        id: String(session.user.id),
-        username: session.user.name || "",
-        name: session.user.name || "",
-        email: session.user.email || "",
-        createdAt: session.user.createdAt
-          ? new Date(session.user.createdAt)
-          : new Date(),
-        updatedAt: session.user.updatedAt
-          ? new Date(session.user.updatedAt)
-          : new Date(),
-      };
-      setSessionUser(user);
       router.push("/");
     }
-  }, [session, setSessionUser, router]);
+  }, [session, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -55,10 +42,12 @@ const SignupPage: React.FC = () => {
     }
 
     try {
-      // Sign up user via backend API
-      const data = await api.signupUser(username, email, password);
+      // Step 1: Call the custom backend API to create the user
+      const signupResponse = await api.signupUser(username, email, password);
+      console.log("Signup successful, user created:", signupResponse);
 
-      // Automatically log in using NextAuth credentials
+      // Step 2: Once the user is created in the database,
+      // call NextAuth's signIn function to handle the session.
       const result = await signIn("credentials", {
         redirect: false,
         email,
@@ -66,16 +55,19 @@ const SignupPage: React.FC = () => {
       });
 
       if (result?.ok) {
-        const user: User = { ...data.user };
-        setSessionUser(user);
-        router.push("/");
+        // NextAuth's session provider will automatically update the session.
+        // The useEffect hook will then handle the redirection.
+        console.log("NextAuth signIn successful.");
       } else {
-        setError("Failed to log in after signup. Please login manually.");
+        // This handles an edge case where signup succeeds but signIn fails
+        setError(
+          result?.error || "Login failed after signup. Please try logging in."
+        );
       }
     } catch (err: unknown) {
       console.error("Signup failed:", err);
       setError(
-        err instanceof Error ? err.message : "Unexpected error occurred."
+        err instanceof Error ? err.message : "An unexpected error occurred."
       );
     } finally {
       setLoading(false);
