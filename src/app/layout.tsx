@@ -1,9 +1,12 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
 import Navbar from "../components/Navbar";
 import Footer from "@/components/Footer";
-import BackButton from "@/components/BackButton"; 
+import BackButton from "@/components/BackButton";
+import ClientAuthWrapper from "@/components/ClientAuthWrapper";
+import AIChatDrawer from "@/components/AiChatDrawer";
 
 const montserrat = Montserrat({ subsets: ["latin"] });
 
@@ -33,10 +36,13 @@ export default function RootLayout({
         <div className="relative z-10 flex flex-col min-h-screen">
           <Navbar />
           <BackButton />
-          <div className="flex-1 flex flex-col pt-24 bg-white bg-opacity-20 backdrop-blur-sm">
-            {children}
-          </div>
+          <ClientAuthWrapper>
+            <div className="flex-1 flex flex-col pt-24 bg-white bg-opacity-20 backdrop-blur-sm">
+              {children}
+            </div>
+          </ClientAuthWrapper>
           <Footer />
+          <AIChatDrawer /> 
         </div>
       </body>
     </html>

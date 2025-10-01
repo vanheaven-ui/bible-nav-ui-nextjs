@@ -5,20 +5,26 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "../../store/authStore";
 import { getFavoriteVerses, deleteFavoriteVerse } from "../../lib/backendApi";
 import Link from "next/link";
-import { Heart, XCircle, Loader2 } from "lucide-react";
+import { XCircle, Loader2 } from "lucide-react";
 
 interface FavoriteVerse {
   id: number;
-  user_id: number;
+  user_id?: number;
   book: string;
   chapter: number;
-  verse_number: number;
-  verse_text: string;
-  created_at: string;
+  verseNumber: number;
+  verseText: string;
+  createdAt: Date; // Assuming Date object, as per your interface definition
 }
 
+const dateOptions: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+};
+
 const FavoritesPage: React.FC = () => {
-  const { token, isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const router = useRouter();
 
   const [favoriteVerses, setFavoriteVerses] = useState<FavoriteVerse[]>([]);
@@ -26,22 +32,23 @@ const FavoritesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [deleteLoadingId, setDeleteLoadingId] = useState<number | null>(null);
 
+  // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
       router.push("/login");
     }
   }, [isAuthenticated, router]);
 
+  // Fetch favorite verses
   useEffect(() => {
     const fetchFavorites = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
       setLoading(true);
       setError(null);
       try {
-        const response = await getFavoriteVerses(token);
+        const response = await getFavoriteVerses();
+        // NOTE: If response.verses returns dates as strings (ISO 8601),
+        // you may need to map them to Date objects here for strict TypeScript compliance:
+        // setFavoriteVerses(response.verses.map(v => ({...v, createdAt: new Date(v.createdAt)})));
         setFavoriteVerses(response.verses);
       } catch (err: unknown) {
         console.error("Failed to fetch favorite verses:", err);
@@ -51,18 +58,14 @@ const FavoritesPage: React.FC = () => {
       }
     };
     fetchFavorites();
-  }, [token]);
+  }, []);
 
+  // Handle deleting a favorite verse
   const handleDelete = async (verseId: number) => {
-    if (!token) {
-      setError("Not authenticated. Please log in.");
-      return;
-    }
-
     setDeleteLoadingId(verseId);
     setError(null);
     try {
-      await deleteFavoriteVerse(token, verseId);
+      await deleteFavoriteVerse(verseId.toString());
       setFavoriteVerses((prev) => prev.filter((v) => v.id !== verseId));
     } catch (err: unknown) {
       console.error("Failed to delete favorite verse:", err);
@@ -72,12 +75,21 @@ const FavoritesPage: React.FC = () => {
     }
   };
 
+  // Navigate to ChapterVersesPage and scroll to selected verse
+  const handleVerseClick = (verse: FavoriteVerse) => {
+    router.push(
+      `/books/${encodeURIComponent(verse.book)}/${verse.chapter}?verse=${
+        verse.verseNumber
+      }`
+    );
+  };
+
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden text-[#2d2a26]">
       {/* Background Image and Overlay */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/parchment-bg.jpg')" }}
+        style={{ backgroundImage: "url('/images/parchment-bg.png')" }}
       />
       <div className="absolute inset-0 -z-10 bg-[#f9f5e7]/85" />
 
@@ -102,9 +114,9 @@ const FavoritesPage: React.FC = () => {
 
         {/* Right side: Verse List */}
         <section
-          className="relative w-full p-8 sm:p-10 rounded-3xl shadow-2xl space-y-8 
-                     bg-gradient-to-br from-[#f9f5e7]/50 to-[#f9f5e7]/30 backdrop-blur-md border border-[#6b705c]/20
-                     max-h-[80vh] overflow-y-auto custom-scrollbar"
+          className="relative w-full p-8 sm:p-10 rounded-3xl shadow-2xl space-y-8
+                         bg-gradient-to-br from-[#f9f5e7]/50 to-[#f9f5e7]/30 backdrop-blur-md border border-[#6b705c]/20
+                         max-h-[80vh] overflow-y-auto custom-scrollbar"
         >
           {loading ? (
             <div className="flex flex-col items-center justify-center p-12">
@@ -139,26 +151,39 @@ const FavoritesPage: React.FC = () => {
               {favoriteVerses.map((verse) => (
                 <div
                   key={verse.id}
-                  className="p-6 bg-[#f9f5e7]/80 rounded-2xl shadow-lg border border-[#6b705c]/20 flex flex-col justify-between transition-transform hover:scale-[1.02] duration-300"
+                  // UPDATED CLASSES for unique clickable indicator
+                  className="relative p-6 bg-[#f9f5e7]/80 rounded-2xl shadow-lg border border-[#6b705c]/20 flex flex-col justify-between 
+                             transition-all duration-300 cursor-pointer 
+                             group hover:shadow-xl hover:border-[#d4af37] hover:bg-[#f9f5e7] hover:scale-[1.02]"
+                  onClick={() => handleVerseClick(verse)}
                 >
+                  {/* UNIQUE INDICATOR: The "Sacred Annotation" Dashed Border */}
+                  <div
+                    className="absolute inset-0 rounded-2xl border-4 border-dashed border-transparent 
+                               group-hover:border-[#d4af37]/70 transition-all duration-500 ease-out 
+                               pointer-events-none"
+                  />
+
                   <div>
                     <p className="text-[#6b705c] font-bold text-xl">
-                      {verse.book} {verse.chapter}:{verse.verse_number}
+                      {verse.book} {verse.chapter}:{verse.verseNumber}
                     </p>
                     <p className="mt-2 text-[#495057] italic leading-relaxed">
-                      &quot;{verse.verse_text}&quot;
+                      &quot;{verse.verseText}&quot;
                     </p>
                     <p className="mt-4 text-[#d4af37] text-sm font-semibold">
-                      Saved:{" "}
-                      {new Date(verse.created_at).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      <span className="mr-2">Saved:</span>
+                      {new Date(verse.createdAt).toLocaleDateString(
+                        "en-US",
+                        dateOptions
+                      )}
                     </p>
                   </div>
                   <button
-                    onClick={() => handleDelete(verse.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(verse.id);
+                    }}
                     disabled={deleteLoadingId === verse.id}
                     className="mt-6 px-4 py-2 bg-[#a4161a] text-white rounded-full hover:bg-[#822121] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
                   >

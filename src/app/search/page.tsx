@@ -50,7 +50,7 @@ const SearchPage: React.FC = () => {
       {/* Background parchment + glow */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/parchment-bg.jpg')" }}
+        style={{ backgroundImage: "url('/images/parchment-bg.png')" }}
       ></div>
       <div className="absolute inset-0 -z-10 bg-[#f9f5e7]/85"></div>
       <div className="absolute top-1/4 left-1/3 w-[30vw] h-[30vw] rounded-full bg-[#d4af37]/20 blur-[120px] -z-0"></div>

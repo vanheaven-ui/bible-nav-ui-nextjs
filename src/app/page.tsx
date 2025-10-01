@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { useAuthStore } from "../store/authStore";
 import useVerse from "@/hooks/useVerse";
 
 const HomePage: React.FC = () => {
   const { isAuthenticated } = useAuthStore();
-  const { verseData, loading, error } = useVerse();
+  const { verseData, loading, error, refreshVerse } = useVerse();
   const contentRef = useRef<HTMLDivElement>(null);
+  // State to control the unique candle flicker animation
+  const [isFlickering, setIsFlickering] = useState(false);
 
   const featureCards = [
     {
@@ -18,7 +20,7 @@ const HomePage: React.FC = () => {
       color: "bg-[#6b705c]/30",
       accent: "text-[#6b705c]",
       icon: "📜",
-      authRequired: false
+      authRequired: false,
     },
     {
       href: "/favorites",
@@ -47,12 +49,30 @@ const HomePage: React.FC = () => {
     }
   };
 
+  // Unique Refresh Function
+  const handleRefreshVerse = useCallback(() => {
+    // Prevent multiple clicks while loading or animating
+    if (loading || isFlickering) return;
+
+    // 1. Start the unique visual feedback (Flickering)
+    setIsFlickering(true);
+
+    // 2. Refresh the verse data after a brief delay
+    // The delay allows the user to see the "candle" light up/flicker
+    setTimeout(() => {
+      refreshVerse();
+
+      // 3. Stop flickering animation
+      setIsFlickering(false);
+    }, 800);
+  }, [loading, isFlickering, refreshVerse]);
+
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden text-[#2d2a26]">
       {/* Background Image */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/parchment-bg.jpg')" }} // place parchment-bg.jpg inside /public/images
+        style={{ backgroundImage: "url('/images/parchment-bg.png')" }}
       ></div>
 
       {/* Transparent parchment overlay */}
@@ -88,9 +108,9 @@ const HomePage: React.FC = () => {
             Verse of the Day
           </h2>
           <div className="font-serif text-lg md:text-xl italic text-[#2d2a26] leading-relaxed min-h-[8rem] text-center">
-            {loading ? (
+            {loading || isFlickering ? (
               <p className="text-[#495057] animate-pulse">
-                Loading your daily guidance...
+                Lighting the candle for new guidance...
               </p>
             ) : error ? (
               <p className="text-[#a4161a] font-sans">{error}</p>
@@ -107,6 +127,32 @@ const HomePage: React.FC = () => {
               </p>
             )}
           </div>
+
+          {/* Sacred Candle Flicker Button (Shown when there is an error or no verse) */}
+          {(error || !verseData) && (
+            <button
+              onClick={handleRefreshVerse}
+              disabled={loading || isFlickering}
+              className={`
+                absolute bottom-4 right-4 p-3 rounded-full shadow-lg transition-all duration-300
+                font-bold text-sm flex items-center gap-2
+                ${
+                  loading || isFlickering
+                    ? "bg-[#a4161a]/50 cursor-not-allowed"
+                    : "bg-[#d4af37] text-[#2d2a26] hover:bg-[#a4161a] hover:text-white"
+                }
+                ${isFlickering ? "animate-flicker-pulse" : ""}
+              `}
+              title="Request a new verse"
+            >
+              <span
+                className={`text-xl ${isFlickering ? "animate-spin-slow" : ""}`}
+              >
+                🕯️
+              </span>
+              {error ? "Retry Guidance" : "Find Verse"}
+            </button>
+          )}
         </section>
       </main>
 
@@ -114,7 +160,7 @@ const HomePage: React.FC = () => {
       <div className="flex justify-center mb-16">
         <button
           onClick={scrollToContent}
-          className="relative inline-flex items-center gap-3 px-10 py-4 text-lg font-semibold text-white bg-[#a4161a] rounded-full shadow-xl hover:bg-[#822121] transition-all duration-300"
+          className="relative inline-flex items-center gap-3 px-10 py-2 text-lg font-semibold text-white bg-[#a4161a] rounded-full shadow-xl hover:bg-[#822121] transition-all duration-300"
         >
           Explore Your Journey
           <span className="text-2xl">↓</span>

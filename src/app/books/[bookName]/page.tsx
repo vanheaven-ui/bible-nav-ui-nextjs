@@ -49,7 +49,7 @@ const BookChaptersPage: React.FC = () => {
       {/* Background Image & Overlay */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/parchment-bg.jpg')" }}
+        style={{ backgroundImage: "url('/images/parchment-bg.png')" }}
       />
       <div className="absolute inset-0 -z-10 bg-[#f9f5e7]/85"></div>
 

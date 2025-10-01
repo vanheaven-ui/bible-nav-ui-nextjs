@@ -1,25 +1,24 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  forwardRef,
-} from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { fetchBibleBooks, fetchBibleChapter, Verse } from "@/lib/bibleApi";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { fetchBibleChapter, Verse } from "@/lib/bibleApi";
 import {
   getFavoriteVerses,
   addFavoriteVerse,
   deleteFavoriteVerse,
   getNotes,
-  FavoriteVerse,
+  addNote,
+  deleteNote,
   Note,
+  FavoriteVerse,
 } from "@/lib/backendApi";
-import { Tooltip } from "react-tooltip";
-import VerseItem from "@/components/VerseItem";
+import { Heart } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Descendant, Element, Node, Text } from "slate";
+import NoteEditor from "@/components/NoteEditor";
+import NoteCard from "@/components/NoteCard";
+import Spinner from "@/components/Spinner";
 
 interface BibleChapter {
   chapter: number;
@@ -27,86 +26,70 @@ interface BibleChapter {
 }
 
 const ChapterVersesPage: React.FC = () => {
-  const { bookName, chapterNumber } = useParams();
-  const router = useRouter();
+  const params = useParams();
+  const searchParams = useSearchParams();
 
-  const decodedBookName =
-    typeof bookName === "string" ? decodeURIComponent(bookName) : "";
-  const chapterNum =
-    typeof chapterNumber === "string" ? Number(chapterNumber) : 0;
+  const bookNameParam = Array.isArray(params.bookName)
+    ? params.bookName[0]
+    : params.bookName;
+  const chapterNumberParam = Array.isArray(params.chapterNumber)
+    ? params.chapterNumber[0]
+    : params.chapterNumber;
+
+  const decodedBookName = bookNameParam
+    ? decodeURIComponent(bookNameParam as string)
+    : "";
+  const chapterNum = chapterNumberParam ? Number(chapterNumberParam) : 0;
+
+  const scrollToVerseParam = searchParams?.get("verse");
 
   const [chapter, setChapter] = useState<BibleChapter | null>(null);
-  const [bookChapters, setBookChapters] = useState<number>(0);
   const [favorites, setFavorites] = useState<FavoriteVerse[]>([]);
   const [userNotes, setUserNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentVerse, setCurrentVerse] = useState<number | null>(null);
-  const [scrollVerse, setScrollVerse] = useState<number | "">("");
+  const [favoriteLoading, setFavoriteLoading] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  const [selectedVerse, setSelectedVerse] = useState<Verse | null>(null);
+  const [notesForVerse, setNotesForVerse] = useState<Note[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentNoteContent, setCurrentNoteContent] = useState<Descendant[]>([
+    { type: "paragraph", children: [{ text: "" }] } as Element,
+  ]);
+  const [mobileEditingVerse, setMobileEditingVerse] = useState<number | null>(
+    null
+  );
+  const [highlightVerse, setHighlightVerse] = useState<number | null>(null);
 
   const verseRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
   const token =
     typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
 
-  const toggleFavorite = useCallback(
-    async (verse: Verse) => {
-      if (!token || !decodedBookName || !chapterNum) return;
-      const existing = favorites.find(
-        (f) =>
-          f.book === decodedBookName &&
-          f.chapter === chapterNum &&
-          f.verse_number === verse.verse_number
-      );
-
-      try {
-        if (existing) {
-          await deleteFavoriteVerse(token, existing.id);
-          setFavorites((prev) => prev.filter((f) => f.id !== existing.id));
-        } else {
-          const { verse: newFav } = await addFavoriteVerse(token, {
-            book: decodedBookName,
-            chapter: chapterNum,
-            verse_number: verse.verse_number,
-            verse_text: verse.text,
-          });
-          setFavorites((prev) => [...prev, newFav]);
-        }
-      } catch (err) {
-        console.error("Failed to toggle favorite:", err);
-      }
-    },
-    [favorites, token, decodedBookName, chapterNum]
-  );
-
-  const handleScrollToVerse = useCallback(() => {
-    if (typeof scrollVerse === "number" && verseRefs.current[scrollVerse]) {
-      verseRefs.current[scrollVerse]?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-      setCurrentVerse(scrollVerse);
-    }
-  }, [scrollVerse]);
-
+  // Load chapter, favorites, and notes
   useEffect(() => {
     const loadData = async () => {
-      if (!decodedBookName || !chapterNum) {
-        setError("Invalid book or chapter.");
-        setLoading(false);
-        return;
-      }
-
       setLoading(true);
       setError(null);
 
       try {
-        const [allBooks, bibleChapter] = await Promise.all([
-          fetchBibleBooks(),
-          fetchBibleChapter(decodedBookName, chapterNum),
-        ]);
+        const chapterPromise = fetchBibleChapter(decodedBookName, chapterNum);
 
-        const foundBook = allBooks.find((b) => b.name === decodedBookName);
-        if (foundBook) setBookChapters(foundBook.chapters);
+        let favs: FavoriteVerse[] = [];
+        let notes: Note[] = [];
+
+        if (token) {
+          const [favsResponse, notesResponse] = await Promise.all([
+            getFavoriteVerses(),
+            getNotes({ book: decodedBookName, chapter: chapterNum }),
+          ]);
+          favs = favsResponse?.verses || [];
+          notes = Array.isArray(notesResponse) ? notesResponse : [];
+        }
+
+        const bibleChapter = await chapterPromise;
 
         if (bibleChapter) {
           setChapter({
@@ -119,166 +102,385 @@ const ChapterVersesPage: React.FC = () => {
         } else {
           setError("Chapter not found.");
         }
+
+        setFavorites(favs);
+        setUserNotes(notes);
       } catch (err) {
-        console.error("Failed to fetch chapter:", err);
-        setError("An error occurred while fetching this chapter.");
+        console.error(err);
+        setError("Failed to load chapter or user data.");
+      } finally {
+        setLoading(false);
       }
-
-      if (token) {
-        try {
-          const [favs, notes] = await Promise.all([
-            getFavoriteVerses(token),
-            getNotes(token, { book: decodedBookName, chapter: chapterNum }),
-          ]);
-          setFavorites(favs.verses);
-          setUserNotes(notes);
-        } catch (err) {
-          console.error("Failed to fetch user data:", err);
-        }
-      }
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const verseParam = urlParams.get("verse");
-      if (verseParam) {
-        const verseNum = Number(verseParam);
-        setCurrentVerse(verseNum);
-        setTimeout(() => {
-          verseRefs.current[verseNum]?.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        }, 100);
-      }
-
-      setLoading(false);
     };
-
     loadData();
   }, [decodedBookName, chapterNum, token]);
 
+  // Scroll to verse if "verse" param exists
+  useEffect(() => {
+    if (scrollToVerseParam && chapter && verseRefs.current) {
+      const verseNum = Number(scrollToVerseParam);
+      const verseEl = verseRefs.current[verseNum];
+      if (verseEl) {
+        verseEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightVerse(verseNum);
+        setTimeout(() => setHighlightVerse(null), 2500);
+      }
+    }
+  }, [scrollToVerseParam, chapter]);
+
+  // Toggle favorite AFTER API success
+  const toggleFavorite = useCallback(
+    async (verse: Verse) => {
+      if (!decodedBookName || !chapterNum) return;
+      setFavoriteLoading(verse.verse_number);
+
+      const existingFav = favorites.find(
+        (f) =>
+          f.book === decodedBookName &&
+          f.chapter === chapterNum &&
+          f.verseNumber === verse.verse_number
+      );
+
+      try {
+        if (existingFav) {
+          await deleteFavoriteVerse(existingFav.id.toString());
+          setFavorites((prev) => prev.filter((f) => f.id !== existingFav.id));
+        } else {
+          const newFav = await addFavoriteVerse({
+            book: decodedBookName,
+            chapter: chapterNum,
+            verseNumber: verse.verse_number,
+            verseText: verse.text,
+          });
+          setFavorites((prev) => [...prev, newFav]);
+        }
+      } catch (err) {
+        console.error("Failed to toggle favorite:", err);
+        alert("Failed to update favorite.");
+      } finally {
+        setFavoriteLoading(null);
+      }
+    },
+    [favorites, decodedBookName, chapterNum]
+  );
+
+  const openVersePanel = useCallback(
+    (verse: Verse) => {
+      setSelectedVerse(verse);
+      const notes = userNotes.filter(
+        (n) =>
+          n.book === decodedBookName &&
+          n.chapter === chapterNum &&
+          n.verse === verse.verse_number
+      );
+      setNotesForVerse(notes);
+      setIsEditing(false);
+      setCurrentNoteContent([{ type: "paragraph", children: [{ text: "" }] }]);
+      setMobileEditingVerse(null);
+    },
+    [userNotes, decodedBookName, chapterNum]
+  );
+
+  const handleSaveNote = useCallback(
+    async (verseNumber?: number) => {
+      const verse = verseNumber
+        ? chapter?.verses.find((v) => v.verse_number === verseNumber)
+        : selectedVerse;
+      if (!verse) return;
+
+      if (
+        currentNoteContent.length === 1 &&
+        (currentNoteContent[0] as Element).children.length > 0 &&
+        ((currentNoteContent[0] as Element).children[0] as unknown as Text)
+          .text === ""
+      ) {
+        return alert("Note is empty.");
+      }
+
+      try {
+        setSaveLoading(true);
+        const newNote = await addNote({
+          book: decodedBookName,
+          chapter: chapterNum,
+          verse: verse.verse_number,
+          content: JSON.stringify(currentNoteContent),
+        });
+        setUserNotes((prev) => [...prev, newNote]);
+
+        if (verseNumber) {
+          setMobileEditingVerse(null);
+        } else {
+          setNotesForVerse((prev) => [...prev, newNote]);
+          setIsEditing(false);
+        }
+
+        setCurrentNoteContent([
+          { type: "paragraph", children: [{ text: "" }] },
+        ]);
+      } catch (err) {
+        console.error(err);
+        alert("Failed to save note.");
+      } finally {
+        setSaveLoading(false);
+      }
+    },
+    [currentNoteContent, selectedVerse, chapter, decodedBookName, chapterNum]
+  );
+
+  const handleDeleteNote = useCallback(async (noteId: string) => {
+    if (!window.confirm("Delete this note?")) return;
+    try {
+      setDeleteLoading(noteId);
+      await deleteNote(noteId);
+      setUserNotes((prev) => prev.filter((n) => n.id !== noteId));
+      setNotesForVerse((prev) => prev.filter((n) => n.id !== noteId));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete note.");
+    } finally {
+      setDeleteLoading(null);
+    }
+  }, []);
+
+  const getPlainText = useCallback((content: Descendant[]) => {
+    if (!content) return "";
+    return content.map((node) => Node.string(node)).join(" ");
+  }, []);
+
   return (
-    <div className="relative min-h-screen flex flex-col overflow-hidden text-[#495057]">
+    <div className="relative min-h-screen flex text-[#495057]">
       {/* Background */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/parchment-bg.jpg')" }}
+        style={{ backgroundImage: "url('/images/parchment-bg.png')" }}
       />
       <div className="absolute inset-0 -z-10 bg-[#f9f5e7]/85" />
 
-      {/* Main Container */}
-      <div className="relative z-10 flex-1 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8 w-full">
-        <div className="max-w-6xl w-full p-8 sm:p-10 rounded-xl shadow-xl space-y-12 bg-[#f9f5e7]/50 backdrop-blur-md border border-[#6b705c]/30">
-          {/* Main Heading with gold underline */}
-          <h1 className="text-4xl sm:text-5xl font-extrabold text-center text-[#6b705c] mb-6 relative after:absolute after:w-24 after:h-1 after:bg-[#d4af37] after:left-1/2 after:-translate-x-1/2 after:mt-2">
-            {decodedBookName} {chapterNum}
-          </h1>
-
-          <p className="text-center text-[#495057] text-xl font-semibold mb-6">
-            Read and reflect on each verse
-          </p>
-
-          {/* Scroll to verse input */}
-          <div className="flex justify-center mb-6 space-x-4">
-            <input
-              type="number"
-              min={1}
-              placeholder="Verse #"
-              value={scrollVerse}
-              onChange={(e) => setScrollVerse(Number(e.target.value))}
-              className="w-24 px-3 py-2 rounded-lg border-2 border-[#6b705c]/40 focus:outline-none focus:ring-2 focus:ring-[#d4af37] transition-colors bg-[#f9f5e7] text-[#2d2a26]"
-            />
-            <button
-              onClick={handleScrollToVerse}
-              className="px-6 py-2 bg-[#a4161a] text-white rounded-lg font-bold shadow-md hover:bg-[#822121] transition-colors"
-            >
-              Go
-            </button>
+      <div className="flex w-full h-screen">
+        {/* Left: Verse cards */}
+        <div className="flex-1 overflow-y-auto h-screen">
+          <div className="sticky top-0 z-10 bg-[#f9f5e7]/95 p-6 border-b border-[#6b705c]/20">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-[#6b705c]">
+              {decodedBookName} {chapterNum}
+            </h1>
           </div>
 
-          {/* Verses List */}
-          {loading ? (
-            <p className="text-center text-[#495057] text-lg animate-pulse">
-              Loading verses...
-            </p>
-          ) : error ? (
-            <p className="text-center text-[#a4161a] text-lg">{error}</p>
-          ) : (
-            <div className="space-y-4">
-              {chapter?.verses.map((v) => {
-                const isFav = favorites.some(
-                  (f) =>
-                    f.book === decodedBookName &&
-                    f.chapter === chapterNum &&
-                    f.verse_number === v.verse_number
-                );
-                const userNote = userNotes.find(
-                  (n) =>
-                    n.book === decodedBookName &&
-                    n.chapter === chapterNum &&
-                    n.verse === v.verse_number
-                );
-
-                return (
-                  <VerseItem
-                    key={v.verse_number}
-                    verse={v}
-                    bookName={decodedBookName}
-                    chapterNumber={chapterNum}
-                    isFav={isFav}
-                    userNote={userNote}
-                    toggleFavorite={toggleFavorite}
-                    isCurrent={currentVerse === v.verse_number}
-                    onClick={() =>
-                      router.push(
-                        `/books/${encodeURIComponent(
-                          decodedBookName
-                        )}/${chapterNum}/${v.verse_number}`
-                      )
-                    }
-                    ref={(el: HTMLDivElement | null) => {
-                      verseRefs.current[v.verse_number] = el;
-                    }}
-                  />
-                );
-              })}
-            </div>
-          )}
-
-          {/* Navigation */}
-          <div className="flex justify-between items-center mt-8">
-            {chapterNum > 1 && (
-              <button
-                onClick={() =>
-                  router.push(`/books/${decodedBookName}/${chapterNum - 1}`)
-                }
-                className="px-4 py-2 bg-[#6b705c] text-white rounded-lg shadow-md hover:bg-[#5a5f4f] transition-colors"
+          <div className="p-6">
+            {loading ? (
+              <p className="animate-pulse">Loading verses...</p>
+            ) : error ? (
+              <p className="text-[#a4161a]">{error}</p>
+            ) : (
+              <div
+                className={`grid gap-4 auto-rows-max transition-all duration-500 ${
+                  selectedVerse
+                    ? "grid-cols-1 max-w-md mx-auto"
+                    : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                }`}
               >
-                ← Previous
-              </button>
-            )}
-            {chapterNum < bookChapters && (
-              <button
-                onClick={() =>
-                  router.push(`/books/${decodedBookName}/${chapterNum + 1}`)
-                }
-                className="px-4 py-2 bg-[#a4161a] text-white rounded-lg shadow-md hover:bg-[#822121] transition-colors"
-              >
-                Next →
-              </button>
-            )}
-          </div>
+                {chapter?.verses.map((verse) => {
+                  const isFav = favorites.some(
+                    (f) =>
+                      f.book === decodedBookName &&
+                      f.chapter === chapterNum &&
+                      f.verseNumber === verse.verse_number
+                  );
 
-          <div className="mt-6 text-center">
-            <Link
-              href={`/books/${decodedBookName}`}
-              className="px-4 py-2 bg-[#d4af37] text-white rounded-lg shadow-md hover:bg-[#b5952f] transition-colors"
-            >
-              📖 Back to Chapters
-            </Link>
+                  const verseNotes = userNotes.filter(
+                    (n) =>
+                      n.book === decodedBookName &&
+                      n.chapter === chapterNum &&
+                      n.verse === verse.verse_number
+                  );
+
+                  return (
+                    <motion.div
+                      key={verse.verse_number}
+                      ref={(el: HTMLDivElement | null) => {
+                        verseRefs.current[verse.verse_number] = el;
+                      }}
+                      onClick={() => openVersePanel(verse)}
+                      layout
+                      whileHover={{ scale: 1.03 }}
+                      className={`flex flex-col p-4 rounded-xl cursor-pointer shadow border border-[#6b705c]/30 bg-[#f9f5e7]/60 ${
+                        highlightVerse === verse.verse_number
+                          ? "bg-[#ffe6e6]/70 border-[#a4161a]"
+                          : ""
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-bold text-[#a4161a]">
+                          {verse.verse_number}
+                        </span>
+
+                        {favoriteLoading === verse.verse_number ? (
+                          <Spinner />
+                        ) : (
+                          <motion.div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(verse);
+                            }}
+                            whileTap={{ scale: 1.3 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 500,
+                              damping: 20,
+                            }}
+                          >
+                            <Heart
+                              size={20}
+                              stroke={isFav ? "#a4161a" : "#6b705c"}
+                              fill={isFav ? "#a4161a" : "none"}
+                              className="cursor-pointer transition-colors"
+                            />
+                          </motion.div>
+                        )}
+                      </div>
+
+                      <p>{verse.text}</p>
+
+                      {/* Mobile notes */}
+                      <div className="mt-4 space-y-2 sm:hidden">
+                        {verseNotes.map((note) => (
+                          <NoteCard
+                            key={note.id}
+                            note={note}
+                            getPlainText={getPlainText}
+                            onDelete={() => handleDeleteNote(note.id)}
+                            deleteLoading={deleteLoading === note.id}
+                          />
+                        ))}
+
+                        {mobileEditingVerse === verse.verse_number ? (
+                          <div
+                            className="space-y-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <NoteEditor
+                              initialContent={currentNoteContent}
+                              onContentChange={setCurrentNoteContent}
+                              placeholder="Write your note..."
+                            />
+                            <div className="flex space-x-2 mt-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMobileEditingVerse(null);
+                                }}
+                                className="px-3 py-1 bg-[#6b705c] text-white rounded-lg text-sm"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSaveNote(verse.verse_number);
+                                }}
+                                className="px-3 py-1 bg-[#a4161a] text-white rounded-lg text-sm flex items-center space-x-1"
+                                disabled={saveLoading}
+                              >
+                                {saveLoading && <Spinner size={4} />}
+                                <span>Save</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMobileEditingVerse(verse.verse_number);
+                            }}
+                            className="px-2 py-1 bg-[#a4161a] text-white rounded text-sm flex-1"
+                          >
+                            + Add Note
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Right: Desktop verse panel */}
+        <AnimatePresence>
+          {selectedVerse && (
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              className="hidden sm:flex w-1/2 bg-[#fdf6e3]/95 border-l border-[#d4af37]/30 shadow-xl flex-col h-screen sticky top-0"
+            >
+              {/* Header */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4 flex justify-between items-center border-b border-[#6b705c]/20 bg-[#fdf6e3] sticky top-0 z-10">
+                  <h2 className="text-lg sm:text-xl font-semibold">
+                    {decodedBookName} {chapterNum}:{selectedVerse.verse_number}
+                  </h2>
+                  <button onClick={() => setSelectedVerse(null)}>✕</button>
+                </div>
+
+                {/* Verse text + Add Note */}
+                <div className="p-4 border-b border-[#6b705c]/20 bg-[#fdf6e3]">
+                  <p className="mb-3">{selectedVerse.text}</p>
+                  {!isEditing && (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="mt-3 px-3 py-1 bg-[#a4161a] text-white rounded-lg"
+                    >
+                      + Add Note
+                    </button>
+                  )}
+                </div>
+
+                {/* Notes list + editor */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {notesForVerse.map((note) => (
+                    <NoteCard
+                      key={note.id}
+                      note={note}
+                      getPlainText={getPlainText}
+                      onDelete={() => handleDeleteNote(note.id)}
+                      deleteLoading={deleteLoading === note.id}
+                    />
+                  ))}
+
+                  {isEditing && (
+                    <NoteEditor
+                      initialContent={currentNoteContent}
+                      onContentChange={setCurrentNoteContent}
+                      placeholder="Write your note..."
+                    />
+                  )}
+                </div>
+
+                {/* Sticky Save/Cancel */}
+                {isEditing && (
+                  <div className="p-4 border-t border-[#6b705c]/20 flex justify-end space-x-2 bg-[#fdf6e3] sticky bottom-0 z-10">
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="px-3 py-1 bg-[#6b705c] text-white rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => handleSaveNote()}
+                      className="px-3 py-1 bg-[#a4161a] text-white rounded-lg flex items-center space-x-1"
+                      disabled={saveLoading}
+                    >
+                      {saveLoading && <Spinner size={4} />}
+                      <span>Save</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-      <Tooltip id="note-tooltip" />
     </div>
   );
 };
