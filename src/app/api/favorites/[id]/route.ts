@@ -1,4 +1,3 @@
-// src/app/api/favorites/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -6,10 +5,10 @@ import { auth } from "@/lib/auth";
 // -------------------------------------------------------------
 // DELETE /api/favorites/[id]
 export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Record<string, string> }
 ) {
-  const id = params.id;
+  const id = context.params.id;
 
   const session = await auth();
   if (!session?.user?.id) {
@@ -42,10 +41,10 @@ export async function DELETE(
 // -------------------------------------------------------------
 // GET /api/favorites/[id]
 export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Record<string, string> }
 ) {
-  const id = params.id;
+  const id = context.params.id;
 
   const session = await auth();
   if (!session?.user?.id) {
@@ -79,9 +78,9 @@ export async function GET(
 // PATCH /api/favorites/[id]
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Record<string, string> }
 ) {
-  const id = params.id;
+  const id = context.params.id;
 
   const session = await auth();
   if (!session?.user?.id) {

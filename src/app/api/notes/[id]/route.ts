@@ -2,25 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-interface Params {
-  params: { id: string };
-}
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Record<string, string> }
+) {
+  const id = context.params.id;
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
   const session = await auth();
-
-  if (!session) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const userId = session.user.id;
+
+  if (!id) {
+    return NextResponse.json({ error: "Missing note id" }, { status: 400 });
+  }
+
   try {
-    const userId = session.user.id;
-    const { id } = params;
-
-    if (!id) {
-      return NextResponse.json({ error: "Missing note id" }, { status: 400 });
-    }
-
     const deleted = await prisma.note.deleteMany({
       where: { id, userId },
     });
