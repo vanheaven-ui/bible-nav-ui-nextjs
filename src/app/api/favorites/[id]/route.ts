@@ -2,19 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-// Define the type for the context object to ensure type safety and compiler compliance
-interface RouteContext {
-  params: { id: string };
-}
+// NOTE: We remove the custom 'RouteContext' interface here to resolve the type error.
+// We will use the type inline.
+
+// The correct signature for dynamic route handlers is:
+// (request: NextRequest, context: { params: { id: string } })
 
 // ---------------------------------------------------------------------------------
-// FIX: Corrected signature for GET (Next.js expects Request and Context as two args)
-export async function GET(req: NextRequest, context: RouteContext) {
+// FIX: The second argument type is defined inline to satisfy the Next.js compiler.
+export async function GET(
+  req: NextRequest,
+  context: { params: { id: string } } // Inline type definition
+) {
   const { params } = context;
   const id = params.id;
 
   const session = await auth();
-  // Use optional chaining with a check for the user's ID
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -35,8 +38,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     return NextResponse.json(favorite);
   } catch (error) {
+    // Check if error is an instance of Error for better type safety
+    const errorMessage =
+      error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
-      { error: "Failed to fetch favorite" },
+      { error: `Failed to fetch favorite: ${errorMessage}` },
       { status: 500 }
     );
   }
@@ -44,7 +50,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
 // ---------------------------------------------------------------------------------
 // FIX: Corrected signature for DELETE
-export async function DELETE(req: NextRequest, context: RouteContext) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: { id: string } } // Inline type definition
+) {
   const { params } = context;
   const id = params.id;
 
@@ -69,8 +78,10 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ message: "Deleted successfully" });
   } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
-      { error: "Failed to delete favorite" },
+      { error: `Failed to delete favorite: ${errorMessage}` },
       { status: 500 }
     );
   }
@@ -78,7 +89,10 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
 
 // ---------------------------------------------------------------------------------
 // FIX: Corrected signature for PATCH
-export async function PATCH(req: NextRequest, context: RouteContext) {
+export async function PATCH(
+  req: NextRequest,
+  context: { params: { id: string } } // Inline type definition
+) {
   const { params } = context;
   const id = params.id;
 
@@ -105,8 +119,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ message: "Updated successfully" });
   } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
-      { error: "Failed to update favorite" },
+      { error: `Failed to update favorite: ${errorMessage}` },
       { status: 500 }
     );
   }
