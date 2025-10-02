@@ -2,17 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-// NOTE: We remove the custom 'RouteContext' interface here to resolve the type error.
-// We will use the type inline.
+interface RouteContext {
+  params: {
+    id: string;
+  };
+}
 
-// The correct signature for dynamic route handlers is:
-// (request: NextRequest, context: { params: { id: string } })
-
-// ---------------------------------------------------------------------------------
-// FIX: The second argument type is defined inline to satisfy the Next.js compiler.
+/**
+ * GET handler to fetch a single favorite item by ID.
+ * Route: /api/favorites/[id]
+ */
 export async function GET(
   req: NextRequest,
-  context: { params: { id: string } } // Inline type definition
+  context: RouteContext 
 ) {
   const { params } = context;
   const id = params.id;
@@ -49,10 +51,14 @@ export async function GET(
 }
 
 // ---------------------------------------------------------------------------------
-// FIX: Corrected signature for DELETE
+
+/**
+ * DELETE handler to remove a favorite item by ID.
+ * Route: /api/favorites/[id]
+ */
 export async function DELETE(
   req: NextRequest,
-  context: { params: { id: string } } // Inline type definition
+  context: RouteContext // Use the explicit interface
 ) {
   const { params } = context;
   const id = params.id;
@@ -65,13 +71,14 @@ export async function DELETE(
   const userId = session.user.id;
 
   try {
+    // Use deleteMany to ensure only the authenticated user can delete their own favorite
     const deleted = await prisma.favorite.deleteMany({
       where: { id, userId },
     });
 
     if (deleted.count === 0) {
       return NextResponse.json(
-        { error: "Favorite not found" },
+        { error: "Favorite not found or not owned by user" },
         { status: 404 }
       );
     }
@@ -87,11 +94,13 @@ export async function DELETE(
   }
 }
 
-// ---------------------------------------------------------------------------------
-// FIX: Corrected signature for PATCH
+/**
+ * PATCH handler to update a favorite item by ID.
+ * Route: /api/favorites/[id]
+ */
 export async function PATCH(
   req: NextRequest,
-  context: { params: { id: string } } // Inline type definition
+  context: RouteContext
 ) {
   const { params } = context;
   const id = params.id;
@@ -104,7 +113,8 @@ export async function PATCH(
   const userId = session.user.id;
 
   try {
-    const data = await req.json(); // fields to update
+    const data = await req.json(); 
+
     const updated = await prisma.favorite.updateMany({
       where: { id, userId },
       data,
