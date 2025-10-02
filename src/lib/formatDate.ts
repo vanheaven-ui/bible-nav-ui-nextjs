@@ -1,4 +1,5 @@
-export const formatRelativeTime = (isoString: string) => {
+export const formatRelativeTime = (input: string | Date): string => {
+  const isoString = typeof input === "string" ? input : input.toISOString();
   const now = new Date();
   const date = new Date(isoString);
   const diffMs = now.getTime() - date.getTime();

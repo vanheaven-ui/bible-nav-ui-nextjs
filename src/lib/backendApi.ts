@@ -1,5 +1,3 @@
-import { Descendant } from "slate";
-
 export interface User {
   id: string;
   username?: string | null;
@@ -36,14 +34,14 @@ export interface FavoriteVerse {
 }
 
 export interface Note {
-  id: string;
+  id: number;
   userId: string;
   book: string;
   chapter: number;
   verse: number;
   content: string;
   createdAt: Date;
-  updatedAt: Date;
+  updatedAt?: Date | null; // Made optional to handle potential nulls and avoid strict null checks
 }
 
 function parseDates<T>(obj: T): T {
@@ -142,10 +140,10 @@ export async function getFavoriteVerses(): Promise<{
 }
 
 export async function deleteFavoriteVerse(
-  verseId: string
+  verseId: number 
 ): Promise<{ message: string }> {
   return makeLocalApiRequest<{ message: string }>(
-    `/api/favorites/${verseId}`,
+    `/api/favorites/${verseId}`, 
     "DELETE"
   );
 }
@@ -174,7 +172,7 @@ export async function getNotes(filters?: {
   return makeLocalApiRequest<Note[]>(endpoint, "GET");
 }
 
-export async function deleteNote(noteId: string): Promise<{ message: string }> {
+export async function deleteNote(noteId: number): Promise<{ message: string }> {
   return makeLocalApiRequest<{ message: string }>(
     `/api/notes/${noteId}`,
     "DELETE"

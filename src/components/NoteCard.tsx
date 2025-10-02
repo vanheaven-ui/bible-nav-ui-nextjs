@@ -19,7 +19,7 @@ const NoteCard: React.FC<NoteCardProps> = ({
   return (
     <div className="p-3 border rounded-lg bg-white shadow-sm flex justify-between items-start">
       <div>
-        <p>{getPlainText(note.content)}</p>
+        <p>{getPlainText(JSON.parse(note.content) as Descendant[])}</p>
         <div className="text-xs text-gray-500 mt-1">
           Created: {formatRelativeTime(note.createdAt)}
           {note.updatedAt && note.updatedAt !== note.createdAt && (

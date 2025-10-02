@@ -65,7 +65,7 @@ const FavoritesPage: React.FC = () => {
     setDeleteLoadingId(verseId);
     setError(null);
     try {
-      await deleteFavoriteVerse(verseId.toString());
+      await deleteFavoriteVerse(verseId);
       setFavoriteVerses((prev) => prev.filter((v) => v.id !== verseId));
     } catch (err: unknown) {
       console.error("Failed to delete favorite verse:", err);

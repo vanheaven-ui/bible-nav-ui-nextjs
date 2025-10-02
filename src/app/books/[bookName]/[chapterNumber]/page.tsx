@@ -49,7 +49,7 @@ const ChapterVersesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favoriteLoading, setFavoriteLoading] = useState<number | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState<number | null>(null); // Changed to number | null
   const [saveLoading, setSaveLoading] = useState(false);
 
   const [selectedVerse, setSelectedVerse] = useState<Verse | null>(null);
@@ -143,7 +143,7 @@ const ChapterVersesPage: React.FC = () => {
 
       try {
         if (existingFav) {
-          await deleteFavoriteVerse(existingFav.id.toString());
+          await deleteFavoriteVerse(existingFav.id); // Removed .toString() – pass number directly
           setFavorites((prev) => prev.filter((f) => f.id !== existingFav.id));
         } else {
           const newFav = await addFavoriteVerse({
@@ -227,13 +227,14 @@ const ChapterVersesPage: React.FC = () => {
     [currentNoteContent, selectedVerse, chapter, decodedBookName, chapterNum]
   );
 
-  const handleDeleteNote = useCallback(async (noteId: string) => {
+  const handleDeleteNote = useCallback(async (noteId: number) => {
+    // Changed param to number
     if (!window.confirm("Delete this note?")) return;
     try {
-      setDeleteLoading(noteId);
-      await deleteNote(noteId);
-      setUserNotes((prev) => prev.filter((n) => n.id !== noteId));
-      setNotesForVerse((prev) => prev.filter((n) => n.id !== noteId));
+      setDeleteLoading(noteId); // Now number
+      await deleteNote(noteId); // Pass number directly
+      setUserNotes((prev) => prev.filter((n) => n.id !== noteId)); // number vs. number
+      setNotesForVerse((prev) => prev.filter((n) => n.id !== noteId)); // number vs. number
     } catch (err) {
       console.error(err);
       alert("Failed to delete note.");
@@ -347,8 +348,8 @@ const ChapterVersesPage: React.FC = () => {
                             key={note.id}
                             note={note}
                             getPlainText={getPlainText}
-                            onDelete={() => handleDeleteNote(note.id)}
-                            deleteLoading={deleteLoading === note.id}
+                            onDelete={() => handleDeleteNote(note.id)} // Passes number
+                            deleteLoading={deleteLoading === note.id} // number vs. number
                           />
                         ))}
 

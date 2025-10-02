@@ -2,17 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-// NOTE: Updated to use Promise<> for params to match Next.js 13.4+ dynamic route context.
-// This resolves the TypeScript build error for async param resolution.
+// Updated Context type for Next.js 15 async dynamic params
 type Context = { params: Promise<{ id: string }> };
 
-// ---------------------------------------------------------------------------------
-// FIX: Await params inside the handler to access the resolved value.
-export async function GET(
-  req: NextRequest,
-  context: Context // Corrected type for the dynamic route context
-) {
-  const params = await context.params;
+export async function GET(req: NextRequest, context: Context) {
+  const params = await context.params; // Await to resolve the Promise
   const id = params.id;
 
   const session = await auth();
@@ -36,7 +30,6 @@ export async function GET(
 
     return NextResponse.json(favorite);
   } catch (error) {
-    // Check if error is an instance of Error for better type safety
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
@@ -46,13 +39,8 @@ export async function GET(
   }
 }
 
-// ---------------------------------------------------------------------------------
-// FIX: Await params inside the handler to access the resolved value.
-export async function DELETE(
-  req: NextRequest,
-  context: Context // Corrected type
-) {
-  const params = await context.params;
+export async function DELETE(req: NextRequest, context: Context) {
+  const params = await context.params; // Await to resolve the Promise
   const id = params.id;
 
   const session = await auth();
@@ -85,13 +73,8 @@ export async function DELETE(
   }
 }
 
-// ---------------------------------------------------------------------------------
-// FIX: Await params inside the handler to access the resolved value.
-export async function PATCH(
-  req: NextRequest,
-  context: Context // Corrected type
-) {
-  const params = await context.params;
+export async function PATCH(req: NextRequest, context: Context) {
+  const params = await context.params; // Await to resolve the Promise
   const id = params.id;
 
   const session = await auth();
