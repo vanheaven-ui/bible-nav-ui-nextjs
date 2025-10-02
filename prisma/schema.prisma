@@ -3,9 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL)
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 /// Users table (manual signup + Google OAuth)
@@ -73,7 +73,7 @@ model Note {
   book      String
   chapter   Int
   verse     Int
-  content   Json 
+  content   Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
