@@ -2,17 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-// NOTE: We will use a standard, compliant inline type for the second argument
-// which resolves the conflict the compiler is having with a separate interface.
-type Context = { params: { id: string } };
+// NOTE: Updated to use Promise<> for params to match Next.js 13.4+ dynamic route context.
+// This resolves the TypeScript build error for async param resolution.
+type Context = { params: Promise<{ id: string }> };
 
 // ---------------------------------------------------------------------------------
-// FIX: Using the simplified 'Context' type for the second argument.
+// FIX: Await params inside the handler to access the resolved value.
 export async function GET(
   req: NextRequest,
   context: Context // Corrected type for the dynamic route context
 ) {
-  const { params } = context;
+  const params = await context.params;
   const id = params.id;
 
   const session = await auth();
@@ -47,12 +47,12 @@ export async function GET(
 }
 
 // ---------------------------------------------------------------------------------
-// FIX: Corrected signature for DELETE
+// FIX: Await params inside the handler to access the resolved value.
 export async function DELETE(
   req: NextRequest,
   context: Context // Corrected type
 ) {
-  const { params } = context;
+  const params = await context.params;
   const id = params.id;
 
   const session = await auth();
@@ -86,12 +86,12 @@ export async function DELETE(
 }
 
 // ---------------------------------------------------------------------------------
-// FIX: Corrected signature for PATCH
+// FIX: Await params inside the handler to access the resolved value.
 export async function PATCH(
   req: NextRequest,
   context: Context // Corrected type
 ) {
-  const { params } = context;
+  const params = await context.params;
   const id = params.id;
 
   const session = await auth();
