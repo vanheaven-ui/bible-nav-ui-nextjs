@@ -242,41 +242,50 @@ export async function fetchBibleBooks(
   );
 }
 
-// Fetch Chapter
+// backendApi.ts (updated)
 export async function fetchBibleChapter(
   book: string,
   chapter: number,
   version = "web"
-): Promise<BibleChapter | null> {
+): Promise<BibleChapter> {
   const encodedBook = encodeURIComponent(book);
-  const primaryData = await fetchJson<BibleApiVerseResponse>(
-    `${BIBLE_API_BASE_URL}${encodedBook}+${chapter}?translation=${version}`
-  );
 
-  if (primaryData?.verses?.length) {
-    return {
-      chapter,
-      verses: primaryData.verses.map((v) => ({ verse: v.verse, text: v.text })),
-    };
+  try {
+    // Primary API call
+    const primaryData = await fetchJson<BibleApiVerseResponse>(
+      `${BIBLE_API_BASE_URL}${encodedBook}+${chapter}?translation=${version}`
+    );
+
+    if (primaryData?.verses?.length) {
+      return {
+        chapter,
+        verses: primaryData.verses.map((v) => ({ verse: v.verse, text: v.text })),
+      };
+    }
+
+    // Fallback to SuperSearch
+    const shortBook = bookShortNames[book] || book;
+    const backupData = await fetchJson<SuperSearchChapterApiResponse>(
+      `${BIBLE_SUPERSEARCH_API_BASE_URL}verses?bible=${version}&book_name=${shortBook}&chapter=${chapter}`
+    );
+
+    if (backupData?.results?.verses?.length) {
+      return {
+        chapter,
+        verses: backupData.results.verses.map((v) => ({ verse: v.verse, text: v.text })),
+      };
+    }
+  } catch (err) {
+    console.error("Error fetching chapter from API:", err);
   }
 
-  // fallback to SuperSearch
-  const shortBook = bookShortNames[book];
-  const backupData = await fetchJson<SuperSearchChapterApiResponse>(
-    `${BIBLE_SUPERSEARCH_API_BASE_URL}verses?bible=${version}&book_name=${shortBook}&chapter=${chapter}`
-  );
-  if (backupData?.results?.verses?.length) {
-    return {
-      chapter,
-      verses: backupData.results.verses.map((v) => ({
-        verse: v.verse,
-        text: v.text,
-      })),
-    };
-  }
-
-  return null;
+  // GUARANTEE: always return a BibleChapter object with an array
+  return {
+    chapter,
+    verses: [], 
+  };
 }
+
 
 // 🔍 Enhanced Keyword + Reference Search
 export async function searchBibleVerses(
