@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { fetchBibleChapter, Verse } from "@/lib/bibleApi";
 import {
   getFavoriteVerses,
@@ -13,12 +14,13 @@ import {
   Note,
   FavoriteVerse,
 } from "@/lib/backendApi";
-import { Heart } from "lucide-react";
+import { Heart, FileText } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Descendant, Element, Node, Text } from "slate";
 import NoteEditor from "@/components/NoteEditor";
 import NoteCard from "@/components/NoteCard";
 import Spinner from "@/components/Spinner";
+import NotePreview from "@/components/NotePreview";
 
 interface BibleChapter {
   chapter: number;
@@ -28,6 +30,7 @@ interface BibleChapter {
 const ChapterVersesPage: React.FC = () => {
   const params = useParams();
   const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
 
   const bookNameParam = Array.isArray(params.bookName)
     ? params.bookName[0]
@@ -49,7 +52,7 @@ const ChapterVersesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favoriteLoading, setFavoriteLoading] = useState<number | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState<number | null>(null); // Changed to number | null
+  const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
   const [saveLoading, setSaveLoading] = useState(false);
 
   const [selectedVerse, setSelectedVerse] = useState<Verse | null>(null);
@@ -65,11 +68,10 @@ const ChapterVersesPage: React.FC = () => {
 
   const verseRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
-
-  // Load chapter, favorites, and notes
+  // Load chapter, favorites, and notes after session is authenticated
   useEffect(() => {
+    if (status !== "authenticated") return; // wait for auth
+
     const loadData = async () => {
       setLoading(true);
       setError(null);
@@ -80,13 +82,21 @@ const ChapterVersesPage: React.FC = () => {
         let favs: FavoriteVerse[] = [];
         let notes: Note[] = [];
 
-        if (token) {
+        if (session) {
+          // fetch favorites and notes only if user is logged in
           const [favsResponse, notesResponse] = await Promise.all([
             getFavoriteVerses(),
             getNotes({ book: decodedBookName, chapter: chapterNum }),
           ]);
-          favs = favsResponse?.verses || [];
-          notes = Array.isArray(notesResponse) ? notesResponse : [];
+
+          favs = favsResponse?.verses ?? [];
+          notes = notesResponse?.notes ?? [];
+          console.log(
+            notes,
+            "Do we have notes",
+            notesResponse,
+            "We have a response from the API"
+          );
         }
 
         const bibleChapter = await chapterPromise;
@@ -112,8 +122,11 @@ const ChapterVersesPage: React.FC = () => {
         setLoading(false);
       }
     };
+
     loadData();
-  }, [decodedBookName, chapterNum, token]);
+  }, [decodedBookName, chapterNum, session, status]);
+
+  console.log(userNotes, favorites);
 
   // Scroll to verse if "verse" param exists
   useEffect(() => {
@@ -128,10 +141,9 @@ const ChapterVersesPage: React.FC = () => {
     }
   }, [scrollToVerseParam, chapter]);
 
-  // Toggle favorite AFTER API success
   const toggleFavorite = useCallback(
     async (verse: Verse) => {
-      if (!decodedBookName || !chapterNum) return;
+      if (!session) return;
       setFavoriteLoading(verse.verse_number);
 
       const existingFav = favorites.find(
@@ -143,7 +155,7 @@ const ChapterVersesPage: React.FC = () => {
 
       try {
         if (existingFav) {
-          await deleteFavoriteVerse(existingFav.id); // Removed .toString() – pass number directly
+          await deleteFavoriteVerse(existingFav.id);
           setFavorites((prev) => prev.filter((f) => f.id !== existingFav.id));
         } else {
           const newFav = await addFavoriteVerse({
@@ -161,7 +173,7 @@ const ChapterVersesPage: React.FC = () => {
         setFavoriteLoading(null);
       }
     },
-    [favorites, decodedBookName, chapterNum]
+    [favorites, decodedBookName, chapterNum, session]
   );
 
   const openVersePanel = useCallback(
@@ -228,13 +240,12 @@ const ChapterVersesPage: React.FC = () => {
   );
 
   const handleDeleteNote = useCallback(async (noteId: number) => {
-    // Changed param to number
     if (!window.confirm("Delete this note?")) return;
     try {
-      setDeleteLoading(noteId); // Now number
-      await deleteNote(noteId); // Pass number directly
-      setUserNotes((prev) => prev.filter((n) => n.id !== noteId)); // number vs. number
-      setNotesForVerse((prev) => prev.filter((n) => n.id !== noteId)); // number vs. number
+      setDeleteLoading(noteId);
+      await deleteNote(noteId);
+      setUserNotes((prev) => prev.filter((n) => n.id !== noteId));
+      setNotesForVerse((prev) => prev.filter((n) => n.id !== noteId));
     } catch (err) {
       console.error(err);
       alert("Failed to delete note.");
@@ -250,7 +261,6 @@ const ChapterVersesPage: React.FC = () => {
 
   return (
     <div className="relative min-h-screen flex text-[#495057]">
-      {/* Background */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center"
         style={{ backgroundImage: "url('/images/parchment-bg.png')" }}
@@ -268,7 +278,9 @@ const ChapterVersesPage: React.FC = () => {
 
           <div className="p-6">
             {loading ? (
-              <p className="animate-pulse">Loading verses...</p>
+              <div className="flex justify-center my-12">
+                <Spinner size={10} color="#a4161a" />
+              </div>
             ) : error ? (
               <p className="text-[#a4161a]">{error}</p>
             ) : (
@@ -294,6 +306,10 @@ const ChapterVersesPage: React.FC = () => {
                       n.verse === verse.verse_number
                   );
 
+                  const heartTitle = isFav
+                    ? "Remove from Favorites"
+                    : "Add to Favorites";
+
                   return (
                     <motion.div
                       key={verse.verse_number}
@@ -303,9 +319,13 @@ const ChapterVersesPage: React.FC = () => {
                       onClick={() => openVersePanel(verse)}
                       layout
                       whileHover={{ scale: 1.03 }}
-                      className={`flex flex-col p-4 rounded-xl cursor-pointer shadow border border-[#6b705c]/30 bg-[#f9f5e7]/60 ${
+                      className={`flex flex-col p-4 rounded-xl cursor-pointer shadow border border-[#6b705c]/30 bg-[#f9f5e7]/60 transition-all duration-300 ${
                         highlightVerse === verse.verse_number
-                          ? "bg-[#ffe6e6]/70 border-[#a4161a]"
+                          ? "bg-[#ffe6e6]/70 border-[#a4161a] ring-2 ring-[#a4161a]/50"
+                          : ""
+                      } ${
+                        isFav || verseNotes.length > 0
+                          ? "border-[#d4af37] shadow-lg"
                           : ""
                       }`}
                     >
@@ -314,42 +334,71 @@ const ChapterVersesPage: React.FC = () => {
                           {verse.verse_number}
                         </span>
 
-                        {favoriteLoading === verse.verse_number ? (
-                          <Spinner />
-                        ) : (
-                          <motion.div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite(verse);
-                            }}
-                            whileTap={{ scale: 1.3 }}
-                            transition={{
-                              type: "spring",
-                              stiffness: 500,
-                              damping: 20,
-                            }}
-                          >
-                            <Heart
-                              size={20}
-                              stroke={isFav ? "#a4161a" : "#6b705c"}
-                              fill={isFav ? "#a4161a" : "none"}
-                              className="cursor-pointer transition-colors"
-                            />
-                          </motion.div>
-                        )}
+                        <div className="flex items-center space-x-2">
+                          {verseNotes.length > 0 && (
+                            <div title={`${verseNotes.length} Note(s)`}>
+                              <FileText
+                                size={16}
+                                className="text-[#d4af37] flex-shrink-0"
+                                aria-label={`${verseNotes.length} Note(s)`}
+                              />
+                            </div>
+                          )}
+
+                          {favoriteLoading === verse.verse_number ? (
+                            <Spinner size={5} color="#a4161a" />
+                          ) : (
+                            <motion.div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(verse);
+                              }}
+                              whileTap={{ scale: 1.3 }}
+                              transition={{
+                                type: "spring",
+                                stiffness: 500,
+                                damping: 20,
+                              }}
+                              title={heartTitle}
+                            >
+                              <Heart
+                                size={20}
+                                stroke={isFav ? "#a4161a" : "#6b705c"}
+                                fill={isFav ? "#a4161a" : "none"}
+                                className="cursor-pointer transition-colors"
+                                aria-label={heartTitle}
+                              />
+                            </motion.div>
+                          )}
+                        </div>
                       </div>
 
                       <p>{verse.text}</p>
 
-                      {/* Mobile notes */}
+                      {/* Inline Note Previews */}
+                      {verseNotes.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <NotePreview
+                            note={verseNotes[0]}
+                            getPlainText={getPlainText}
+                          />
+                          {verseNotes.length > 1 && (
+                            <span className="text-xs text-[#6b705c] block pl-2 italic">
+                              + {verseNotes.length - 1} more note(s)...
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Mobile notes/editor */}
                       <div className="mt-4 space-y-2 sm:hidden">
                         {verseNotes.map((note) => (
                           <NoteCard
                             key={note.id}
                             note={note}
                             getPlainText={getPlainText}
-                            onDelete={() => handleDeleteNote(note.id)} // Passes number
-                            deleteLoading={deleteLoading === note.id} // number vs. number
+                            onDelete={handleDeleteNote}
+                            deleteLoading={deleteLoading === note.id}
                           />
                         ))}
 
@@ -362,12 +411,19 @@ const ChapterVersesPage: React.FC = () => {
                               initialContent={currentNoteContent}
                               onContentChange={setCurrentNoteContent}
                               placeholder="Write your note..."
+                              loading={saveLoading}
                             />
                             <div className="flex space-x-2 mt-1">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setMobileEditingVerse(null);
+                                  setCurrentNoteContent([
+                                    {
+                                      type: "paragraph",
+                                      children: [{ text: "" }],
+                                    },
+                                  ]);
                                 }}
                                 className="px-3 py-1 bg-[#6b705c] text-white rounded-lg text-sm"
                               >
@@ -378,11 +434,14 @@ const ChapterVersesPage: React.FC = () => {
                                   e.stopPropagation();
                                   handleSaveNote(verse.verse_number);
                                 }}
-                                className="px-3 py-1 bg-[#a4161a] text-white rounded-lg text-sm flex items-center space-x-1"
+                                className="px-3 py-1 bg-[#a4161a] text-white rounded-lg text-sm"
                                 disabled={saveLoading}
                               >
-                                {saveLoading && <Spinner size={4} />}
-                                <span>Save</span>
+                                {saveLoading ? (
+                                  <Spinner size={4} color="white" />
+                                ) : (
+                                  "Save"
+                                )}
                               </button>
                             </div>
                           </div>
@@ -391,8 +450,9 @@ const ChapterVersesPage: React.FC = () => {
                             onClick={(e) => {
                               e.stopPropagation();
                               setMobileEditingVerse(verse.verse_number);
+                              setSelectedVerse(null);
                             }}
-                            className="px-2 py-1 bg-[#a4161a] text-white rounded text-sm flex-1"
+                            className="px-2 py-1 bg-[#a4161a] text-white rounded text-sm flex-1 w-full"
                           >
                             + Add Note
                           </button>
@@ -413,9 +473,9 @@ const ChapterVersesPage: React.FC = () => {
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
+              transition={{ type: "tween", duration: 0.3 }}
               className="hidden sm:flex w-1/2 bg-[#fdf6e3]/95 border-l border-[#d4af37]/30 shadow-xl flex-col h-screen sticky top-0"
             >
-              {/* Header */}
               <div className="flex-1 overflow-y-auto">
                 <div className="p-4 flex justify-between items-center border-b border-[#6b705c]/20 bg-[#fdf6e3] sticky top-0 z-10">
                   <h2 className="text-lg sm:text-xl font-semibold">
@@ -424,59 +484,63 @@ const ChapterVersesPage: React.FC = () => {
                   <button onClick={() => setSelectedVerse(null)}>✕</button>
                 </div>
 
-                {/* Verse text + Add Note */}
                 <div className="p-4 border-b border-[#6b705c]/20 bg-[#fdf6e3]">
-                  <p className="mb-3">{selectedVerse.text}</p>
-                  {!isEditing && (
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="mt-3 px-3 py-1 bg-[#a4161a] text-white rounded-lg"
-                    >
-                      + Add Note
-                    </button>
-                  )}
+                  <p className="text-[#495057]">{selectedVerse.text}</p>
                 </div>
 
-                {/* Notes list + editor */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="p-4 space-y-3">
                   {notesForVerse.map((note) => (
                     <NoteCard
                       key={note.id}
                       note={note}
                       getPlainText={getPlainText}
-                      onDelete={() => handleDeleteNote(note.id)}
+                      onDelete={handleDeleteNote}
                       deleteLoading={deleteLoading === note.id}
                     />
                   ))}
 
-                  {isEditing && (
-                    <NoteEditor
-                      initialContent={currentNoteContent}
-                      onContentChange={setCurrentNoteContent}
-                      placeholder="Write your note..."
-                    />
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <NoteEditor
+                        initialContent={currentNoteContent}
+                        onContentChange={setCurrentNoteContent}
+                        placeholder="Write your note..."
+                        loading={saveLoading}
+                      />
+                      <div className="flex space-x-2 mt-1">
+                        <button
+                          onClick={() => {
+                            setIsEditing(false);
+                            setCurrentNoteContent([
+                              { type: "paragraph", children: [{ text: "" }] },
+                            ]);
+                          }}
+                          className="px-3 py-1 bg-[#6b705c] text-white rounded-lg text-sm"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleSaveNote()}
+                          className="px-3 py-1 bg-[#a4161a] text-white rounded-lg text-sm"
+                          disabled={saveLoading}
+                        >
+                          {saveLoading ? (
+                            <Spinner size={4} color="white" />
+                          ) : (
+                            "Save"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="px-3 py-1 bg-[#a4161a] text-white rounded-lg text-sm w-full"
+                    >
+                      + Add Note
+                    </button>
                   )}
                 </div>
-
-                {/* Sticky Save/Cancel */}
-                {isEditing && (
-                  <div className="p-4 border-t border-[#6b705c]/20 flex justify-end space-x-2 bg-[#fdf6e3] sticky bottom-0 z-10">
-                    <button
-                      onClick={() => setIsEditing(false)}
-                      className="px-3 py-1 bg-[#6b705c] text-white rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => handleSaveNote()}
-                      className="px-3 py-1 bg-[#a4161a] text-white rounded-lg flex items-center space-x-1"
-                      disabled={saveLoading}
-                    >
-                      {saveLoading && <Spinner size={4} />}
-                      <span>Save</span>
-                    </button>
-                  </div>
-                )}
               </div>
             </motion.div>
           )}
