@@ -1,3 +1,4 @@
+// backendApi.ts
 const VERSE_OF_THE_DAY_API_URL =
   "https://beta.ourmanna.com/api/v1/get?format=json&order=daily";
 const BIBLE_API_BASE_URL = "https://bible-api.com/";
@@ -5,9 +6,13 @@ const BIBLE_SUPERSEARCH_API_BASE_URL = "https://api.biblesupersearch.com/api/";
 
 // ---------- Interfaces ----------
 export interface VerseOfTheDay {
-  verse: {
-    details: VerseDetails;
-  };
+  verse: { details: VerseDetails };
+}
+
+export interface VerseDetails {
+  text: string;
+  reference: string;
+  version: string;
 }
 
 export interface BibleVerse {
@@ -54,11 +59,23 @@ export interface SearchResult {
   text: string;
 }
 
-// Interfaces for API responses
+// ---------- API Response Interfaces ----------
 interface BibleApiVerseResponse {
-  text: string;
   verses: { book_name: string; chapter: number; verse: number; text: string }[];
   translation_name: string;
+}
+
+interface BibleApiSearchResponse {
+  verses: { book_name: string; chapter: number; verse: number; text: string }[];
+}
+
+interface SuperSearchResponse {
+  results: {
+    book: string;
+    chapter: number;
+    verse: number;
+    text: string;
+  }[];
 }
 
 interface SuperSearchBooksApiResponse {
@@ -69,10 +86,6 @@ interface SuperSearchBooksApiResponse {
     chapters: number;
     chapter_verses: Record<string, number>;
   }[];
-}
-
-interface BibleApiChapterResponse {
-  verses: { chapter: number; verse: number; text: string }[];
 }
 
 interface SuperSearchChapterApiResponse {
@@ -86,25 +99,14 @@ interface SuperSearchChapterApiResponse {
   };
 }
 
-interface BibleApiSearchResponse {
-  verses: { book_name: string; chapter: number; verse: number; text: string }[];
-}
-
-export interface VerseDetails {
-  text: string;
-  reference: string;
-  version: string;
-}
-
-// ---------- Cache with expiration ----------
+// ---------- Cache with Expiration ----------
 interface CacheItem<T> {
   data: T;
-  expiry: number; // timestamp in ms
+  expiry: number;
 }
-
 const cache = new Map<string, CacheItem<unknown>>();
 
-// ---------- Fetch helper ----------
+// ---------- Fetch Helper ----------
 async function fetchJson<T>(
   url: string,
   ttl = 12 * 60 * 60 * 1000,
@@ -117,9 +119,7 @@ async function fetchJson<T>(
   try {
     const response = await fetch(url, { signal });
     if (!response.ok)
-      throw new Error(
-        `Fetch failed: ${response.status} ${response.statusText}`
-      );
+      throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
     const data = (await response.json()) as T;
     cache.set(url, { data, expiry: now + ttl });
     return data;
@@ -129,7 +129,7 @@ async function fetchJson<T>(
   }
 }
 
-// ---------- Static Book Name Mapping ----------
+// ---------- Static Book Short Names ----------
 const bookShortNames: Record<string, string> = {
   Genesis: "Gen",
   Exodus: "Exo",
@@ -200,70 +200,33 @@ const bookShortNames: Record<string, string> = {
 };
 
 // ---------- API Functions ----------
-// export async function fetchVerseOfTheDay(
-//   signal?: AbortSignal
-// ): Promise<VerseOfTheDay | null> {
-//   return await fetchJson<VerseOfTheDay>(
-//     VERSE_OF_THE_DAY_API_URL,
-//     12 * 60 * 60 * 1000,
-//     signal
-//   );
-// }
 
-export async function fetchVerseOfTheDay(options?: {
-  signal?: AbortSignal;
-}): Promise<VerseOfTheDay | null> {
-  const now = Date.now();
-  const cached = cache.get(VERSE_OF_THE_DAY_API_URL);
-  if (cached && cached.expiry > now) {
-    return cached.data as VerseOfTheDay;
-  }
-
-  try {
-    const response = await fetch(VERSE_OF_THE_DAY_API_URL, {
-      signal: options?.signal,
-    });
-    if (!response.ok)
-      throw new Error(
-        `Fetch failed: ${response.status} ${response.statusText}`
-      );
-    
-    const data = (await response.json()) as VerseOfTheDay;
-
-    // Save to cache
-    cache.set(VERSE_OF_THE_DAY_API_URL, {
-      data,
-      expiry: now + 12 * 60 * 60 * 1000,
-    }); // 12h TTL
-
-    return data;
-  } catch (error) {
-    console.error("Fetch error:", error);
-    return null;
-  }
+// Verse of the Day
+export async function fetchVerseOfTheDay(): Promise<VerseOfTheDay | null> {
+  return fetchJson<VerseOfTheDay>(VERSE_OF_THE_DAY_API_URL);
 }
 
+// Fetch Bible Verse by reference
 export async function fetchBibleVerse(
   reference: string,
-  version: string = "web"
+  version = "web"
 ): Promise<BibleVerse | null> {
-  const encodedReference = encodeURIComponent(reference);
   const data = await fetchJson<BibleApiVerseResponse>(
-    `${BIBLE_API_BASE_URL}${encodedReference}?translation=${version}`
+    `${BIBLE_API_BASE_URL}${encodeURIComponent(reference)}?translation=${version}`
   );
-  if (data?.verses?.length) {
-    const verseData = data.verses[0];
-    return {
-      text: verseData.text,
-      reference: `${verseData.book_name} ${verseData.chapter}:${verseData.verse}`,
-      translation_name: data.translation_name,
-    };
-  }
-  return null;
+  if (!data?.verses?.length) return null;
+
+  const v = data.verses[0];
+  return {
+    text: v.text,
+    reference: `${v.book_name} ${v.chapter}:${v.verse}`,
+    translation_name: data.translation_name,
+  };
 }
 
+// Fetch All Books
 export async function fetchBibleBooks(
-  language: string = "en"
+  language = "en"
 ): Promise<SuperSearchBibleBook[]> {
   const data = await fetchJson<SuperSearchBooksApiResponse>(
     `${BIBLE_SUPERSEARCH_API_BASE_URL}books?language=${language}`
@@ -279,32 +242,30 @@ export async function fetchBibleBooks(
   );
 }
 
+// Fetch Chapter
 export async function fetchBibleChapter(
   book: string,
   chapter: number,
-  version: string = "web"
+  version = "web"
 ): Promise<BibleChapter | null> {
   const encodedBook = encodeURIComponent(book);
-
-  // Primary API
-  const primaryData = await fetchJson<BibleApiChapterResponse>(
+  const primaryData = await fetchJson<BibleApiVerseResponse>(
     `${BIBLE_API_BASE_URL}${encodedBook}+${chapter}?translation=${version}`
   );
-  if (primaryData?.verses?.length)
+
+  if (primaryData?.verses?.length) {
     return {
       chapter,
       verses: primaryData.verses.map((v) => ({ verse: v.verse, text: v.text })),
     };
+  }
 
-  // Backup API
-  const shortBookName = bookShortNames[book];
-  if (!shortBookName) throw new Error(`Unknown book: ${book}`);
+  // fallback to SuperSearch
+  const shortBook = bookShortNames[book];
   const backupData = await fetchJson<SuperSearchChapterApiResponse>(
-    `${BIBLE_SUPERSEARCH_API_BASE_URL}verses?bible=web&book_name=${encodeURIComponent(
-      shortBookName
-    )}&chapter=${chapter}`
+    `${BIBLE_SUPERSEARCH_API_BASE_URL}verses?bible=${version}&book_name=${shortBook}&chapter=${chapter}`
   );
-  if (backupData?.results?.verses?.length)
+  if (backupData?.results?.verses?.length) {
     return {
       chapter,
       verses: backupData.results.verses.map((v) => ({
@@ -312,24 +273,62 @@ export async function fetchBibleChapter(
         text: v.text,
       })),
     };
+  }
 
   return null;
 }
 
+// 🔍 Enhanced Keyword + Reference Search
 export async function searchBibleVerses(
   query: string,
-  version: string = "kjv"
+  version = "kjv"
 ): Promise<SearchResult[]> {
-  const encodedQuery = encodeURIComponent(query);
-  const data = await fetchJson<BibleApiSearchResponse>(
-    `${BIBLE_API_BASE_URL}${encodedQuery}?translation=${version}`
-  );
-  return (
-    data?.verses?.map((v) => ({
-      book: v.book_name,
+  const trimmed = query.trim();
+
+  // Detect reference (e.g., "John 3:16" or "Psalm 23")
+  const refPattern = /^[1-3]?\s?[A-Za-z]+\s?\d+(:\d+)?$/;
+  const isReference = refPattern.test(trimmed);
+
+  if (isReference) {
+    // Bible-API handles direct references best
+    const data = await fetchJson<BibleApiSearchResponse>(
+      `${BIBLE_API_BASE_URL}${encodeURIComponent(trimmed)}?translation=${version}`
+    );
+    return (
+      data?.verses?.map((v) => ({
+        book: v.book_name,
+        chapter: v.chapter,
+        verse: v.verse,
+        text: v.text,
+      })) ?? []
+    );
+  } else {
+    // Perform keyword search using BibleSuperSearch
+    const keywordUrl = `${BIBLE_SUPERSEARCH_API_BASE_URL}search?bible=${version}&query=${encodeURIComponent(
+      trimmed
+    )}`;
+    const data = await fetchJson<SuperSearchResponse>(keywordUrl);
+
+    // Fallback to Bible API search (sometimes more generous)
+    if (!data?.results?.length) {
+      const fallback = await fetchJson<BibleApiSearchResponse>(
+        `${BIBLE_API_BASE_URL}${encodeURIComponent(trimmed)}?translation=${version}`
+      );
+      return (
+        fallback?.verses?.map((v) => ({
+          book: v.book_name,
+          chapter: v.chapter,
+          verse: v.verse,
+          text: v.text,
+        })) ?? []
+      );
+    }
+
+    return data.results.map((v) => ({
+      book: v.book,
       chapter: v.chapter,
       verse: v.verse,
       text: v.text,
-    })) ?? []
-  );
+    }));
+  }
 }
