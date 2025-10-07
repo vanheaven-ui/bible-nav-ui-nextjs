@@ -1,3 +1,7 @@
+import { Session } from "next-auth";
+
+// -------------------- Interfaces --------------------
+
 export interface User {
   id: string;
   username?: string | null;
@@ -41,14 +45,15 @@ export interface Note {
   verse: number;
   content: string;
   createdAt: Date;
-  updatedAt?: Date | null; // Made optional to handle potential nulls and avoid strict null checks
+  updatedAt?: Date | null;
 }
+
+// -------------------- Helper Functions --------------------
 
 function parseDates<T>(obj: T): T {
   if (obj === null || obj === undefined) return obj;
-  if (Array.isArray(obj)) {
-    return obj.map(parseDates) as unknown as T;
-  } else if (typeof obj === "object") {
+  if (Array.isArray(obj)) return obj.map(parseDates) as unknown as T;
+  if (typeof obj === "object") {
     const result: Record<string, unknown> = {};
     for (const key in obj as object) {
       const value = (obj as Record<string, unknown>)[key];
@@ -71,10 +76,9 @@ async function makeLocalApiRequest<T>(
   method: string = "GET",
   body?: unknown
 ): Promise<T> {
-  const headers: HeadersInit = { "Content-Type": "application/json" };
   const config: RequestInit = {
     method,
-    headers,
+    headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   };
 
@@ -98,6 +102,8 @@ async function makeLocalApiRequest<T>(
   }
 }
 
+// -------------------- Auth --------------------
+
 export async function loginUser(
   email: string,
   password: string
@@ -120,6 +126,14 @@ export async function signupUser(
   });
 }
 
+// -------------------- Favorites --------------------
+
+export async function getFavoriteVerses(): Promise<{
+  verses: FavoriteVerse[];
+}> {
+  return makeLocalApiRequest<{ verses: FavoriteVerse[] }>("/api/favorites");
+}
+
 export async function addFavoriteVerse(
   verseDetails: Omit<FavoriteVerse, "id" | "userId" | "createdAt">
 ): Promise<FavoriteVerse> {
@@ -130,35 +144,22 @@ export async function addFavoriteVerse(
   );
 }
 
-export async function getFavoriteVerses(): Promise<{
-  verses: FavoriteVerse[];
-}> {
-  return makeLocalApiRequest<{ verses: FavoriteVerse[] }>(
-    "/api/favorites",
-    "GET"
-  );
-}
-
 export async function deleteFavoriteVerse(
-  verseId: number 
+  verseId: number
 ): Promise<{ message: string }> {
   return makeLocalApiRequest<{ message: string }>(
-    `/api/favorites/${verseId}`, 
+    `/api/favorites/${verseId}`,
     "DELETE"
   );
 }
 
-export async function addNote(
-  noteDetails: Omit<Note, "id" | "userId" | "createdAt" | "updatedAt">
-): Promise<Note> {
-  return makeLocalApiRequest<Note>("/api/notes", "POST", noteDetails);
-}
+// -------------------- Notes --------------------
 
 export async function getNotes(filters?: {
   book?: string;
   chapter?: number;
   verse?: number;
-}): Promise<Note[]> {
+}): Promise<{ notes: Note[] }> {
   const query = new URLSearchParams();
   if (filters?.book) query.append("book", filters.book);
   if (filters?.chapter !== undefined)
@@ -169,7 +170,15 @@ export async function getNotes(filters?: {
   const endpoint = `/api/notes${
     query.toString() ? `?${query.toString()}` : ""
   }`;
-  return makeLocalApiRequest<Note[]>(endpoint, "GET");
+  const notesArray = await makeLocalApiRequest<{ notes: Note[] }>(endpoint);
+
+  return notesArray;
+}
+
+export async function addNote(
+  noteDetails: Omit<Note, "id" | "userId" | "createdAt" | "updatedAt">
+): Promise<Note> {
+  return makeLocalApiRequest<Note>("/api/notes", "POST", noteDetails);
 }
 
 export async function deleteNote(noteId: number): Promise<{ message: string }> {
@@ -178,6 +187,8 @@ export async function deleteNote(noteId: number): Promise<{ message: string }> {
     "DELETE"
   );
 }
+
+// -------------------- AI --------------------
 
 export async function askAI(prompt: string): Promise<{ answer: string }> {
   return makeLocalApiRequest<{ answer: string }>("/api/ai", "POST", { prompt });
