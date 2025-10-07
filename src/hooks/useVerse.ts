@@ -20,7 +20,6 @@ const useVerse = () => {
 
   useEffect(() => {
     const controller = new AbortController();
-    const signal = controller.signal;
 
     const getVerse = async () => {
       setLoading(true);
@@ -29,7 +28,7 @@ const useVerse = () => {
       console.log("Fetching Verse of the Day (Trigger:", fetchTrigger, ")");
 
       try {
-        const data: VerseOfTheDay | null = await fetchVerseOfTheDay({ signal });
+        const data: VerseOfTheDay | null = await fetchVerseOfTheDay();
 
         if (data?.verse?.details) {
           setVerseData(data.verse.details);
