@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { searchBibleVerses, SearchResult } from "@/lib/bibleApi";
-import { Loader2, Search, Zap, Compass } from "lucide-react";
+import { Loader2, Search, Compass, ArrowUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Helper for generating varied grid spans
 const getCardSpan = (textLength: number): string => {
-  if (textLength < 60) return "col-span-full sm:col-span-3 lg:col-span-2"; // Smallest: 2 units wide
-  if (textLength < 120) return "col-span-full sm:col-span-3 lg:col-span-3"; // Medium: 3 units wide
-  return "col-span-full sm:col-span-6 lg:col-span-4"; // Largest: 4 units wide
+  if (textLength < 60) return "col-span-full sm:col-span-3 lg:col-span-2";
+  if (textLength < 120) return "col-span-full sm:col-span-3 lg:col-span-3";
+  return "col-span-full sm:col-span-6 lg:col-span-4";
 };
 
 const getCardHeight = (textLength: number): string => {
@@ -24,8 +24,11 @@ const SearchPage: React.FC = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTopBtn, setShowTopBtn] = useState(false);
 
   const router = useRouter();
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+  const topRef = useRef<HTMLDivElement | null>(null); // For scrolling to top
 
   // Debounced search effect
   useEffect(() => {
@@ -43,29 +46,14 @@ const SearchPage: React.FC = () => {
         setError(null);
 
         let data: SearchResult[] = [];
-
-        // Logic for "Book Chapter:Verse" or "Book Chapter"
         const chapterVerseMatch = trimmed.match(
           /^([A-Za-z]+)\s+(\d+)(?::(\d+))?$/
         );
 
         if (chapterVerseMatch) {
-          const book = chapterVerseMatch[1];
-          const chapter = parseInt(chapterVerseMatch[2]);
-          const verse = chapterVerseMatch[3]
-            ? parseInt(chapterVerseMatch[3])
-            : undefined;
-
-          // Attempt to handle full name books like "1 Corinthians"
           const fullQuery = trimmed;
-
-          if (verse) {
-            data = await searchBibleVerses(fullQuery);
-          } else {
-            data = await searchBibleVerses(fullQuery);
-          }
+          data = await searchBibleVerses(fullQuery);
         } else {
-          // fallback: regular search (word search)
           data = await searchBibleVerses(trimmed);
         }
 
@@ -84,8 +72,26 @@ const SearchPage: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [query]);
 
+  // ✅ Auto-scroll to results when they appear
+  useEffect(() => {
+    if (!loading && results.length > 0 && resultsRef.current) {
+      const yOffset = -120;
+      const elementTop =
+        resultsRef.current.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: elementTop + yOffset, behavior: "smooth" });
+    }
+  }, [loading, results]);
+
+  // ✅ Show/hide "Back to Top" button on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowTopBtn(window.scrollY > 600);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const handleVerseClick = (verse: SearchResult) => {
-    // Navigate to the chapter page and scroll to the verse
     router.push(
       `/books/${encodeURIComponent(verse.book)}/${verse.chapter}?verse=${
         verse.verse
@@ -93,9 +99,17 @@ const SearchPage: React.FC = () => {
     );
   };
 
+  // ✅ Scroll to top function
+  const scrollToTop = () => {
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
-    <div className="relative min-h-screen bg-[#f9f5e7] text-[#2d2a26] p-4 md:p-8 pt-24 md:pt-32 overflow-hidden">
-      {/* Background (Z-index: -20 to -0) */}
+    <div
+      ref={topRef}
+      className="relative min-h-screen bg-[#f9f5e7] text-[#2d2a26] p-4 md:p-8 pt-24 md:pt-32 overflow-hidden"
+    >
+      {/* Background */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center"
         style={{ backgroundImage: "url('/images/parchment-bg.png')" }}
@@ -104,9 +118,9 @@ const SearchPage: React.FC = () => {
       <div className="absolute top-1/4 left-1/3 w-[30vw] h-[30vw] rounded-full bg-[#d4af37]/20 blur-[120px] -z-0" />
       <div className="absolute bottom-1/4 right-1/3 w-[35vw] h-[35vw] rounded-full bg-[#a4161a]/20 blur-[150px] -z-0" />
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Decorative Header (Shown only when no results) */}
+        {/* Header */}
         {results.length === 0 && !loading && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -124,7 +138,7 @@ const SearchPage: React.FC = () => {
           </motion.div>
         )}
 
-        {/* Search Bar (Sticky) */}
+        {/* Search Bar */}
         <motion.div
           layout
           transition={{ type: "spring", stiffness: 700, damping: 40 }}
@@ -143,10 +157,9 @@ const SearchPage: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Search Results / Status */}
-        <section className="mt-12 pt-4">
+        {/* Search Results */}
+        <section ref={resultsRef} className="mt-12 pt-4">
           <div className="min-h-[20vh] flex flex-col items-center justify-center">
-            {/* Loading Status */}
             {loading && (
               <div className="flex justify-center my-12">
                 <Loader2 className="w-10 h-10 animate-spin text-[#a4161a]" />
@@ -156,27 +169,23 @@ const SearchPage: React.FC = () => {
               </div>
             )}
 
-            {/* Error Status */}
             {!loading && error && (
               <p className="text-[#a4161a] mt-8 text-center text-lg p-4 bg-[#ffe6e6]/70 rounded-xl border border-[#a4161a]/50 max-w-lg mx-auto">
                 {error}
               </p>
             )}
 
-            {/* Initial Placeholder */}
             {!loading && !error && results.length === 0 && !query && (
               <p className="text-[#6b705c] text-center italic mt-8 text-xl max-w-lg mx-auto">
-                Start your journey by typing a reference (e.g., **John 3**) or a
-                keyword.
+                Start your journey by typing a reference (e.g.,{" "}
+                <strong>John 3</strong>) or a keyword.
               </p>
             )}
           </div>
 
-          {/* Verse Cards Container */}
           <AnimatePresence>
             {results.length > 0 && (
               <motion.ul
-                // KEY CHANGE: Use a 6-column grid with auto-rows-max for masonry effect
                 className="grid grid-cols-6 gap-6 mt-8 auto-rows-max"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -195,13 +204,11 @@ const SearchPage: React.FC = () => {
                       delay: idx * 0.03,
                     }}
                     onClick={() => handleVerseClick(r)}
-                    // KEY CHANGE: Dynamically apply span and height classes
                     className={`${getCardSpan(r.text.length)} ${getCardHeight(
                       r.text.length
-                    )}
-                                        group p-5 rounded-xl shadow-lg border border-[#6b705c]/10 bg-white/70 backdrop-blur-sm
-                                        cursor-pointer hover:shadow-2xl hover:border-[#d4af37] transition-all duration-300
-                                        transform hover:scale-[1.03] flex flex-col justify-between`}
+                    )} group p-5 rounded-xl shadow-lg border border-[#6b705c]/10 bg-white/70 backdrop-blur-sm
+                      cursor-pointer hover:shadow-2xl hover:border-[#d4af37] transition-all duration-300
+                      transform hover:scale-[1.03] flex flex-col justify-between`}
                   >
                     <p className="font-serif text-base italic leading-snug text-[#2d2a26] overflow-hidden">
                       {r.text}
@@ -218,6 +225,23 @@ const SearchPage: React.FC = () => {
           </AnimatePresence>
         </section>
       </div>
+
+      {/* ✅ Floating Back-to-Top Button */}
+      <AnimatePresence>
+        {showTopBtn && (
+          <motion.button
+            onClick={scrollToTop}
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ duration: 0.3 }}
+            className="fixed bottom-8 right-8 z-50 p-4 rounded-full bg-[#a4161a] text-white shadow-xl hover:bg-[#d4af37] hover:text-[#2d2a26] transition-all duration-300"
+            aria-label="Scroll to top"
+          >
+            <ArrowUp className="w-6 h-6" />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
