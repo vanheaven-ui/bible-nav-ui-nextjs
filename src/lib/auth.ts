@@ -1,25 +1,14 @@
-import { PrismaAdapter } from "@auth/prisma-adapter"; 
+import NextAuth, { type NextAuthConfig } from "next-auth";
+import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
-import NextAuth from "next-auth";
-import type { JWT } from "next-auth/jwt";
-import type { Session, User } from "next-auth";
 
-export interface AuthUser extends User {
-  id: string;
-  name?: string | null;
-  email?: string | null;
-}
+const config: NextAuthConfig = {
+  debug: process.env.NODE_ENV === "development",
 
-export interface CustomSession extends Session {
-  user: AuthUser;
-}
-
-// NextAuth v5 config
-const config = {
-  adapter: PrismaAdapter(prisma), 
+  adapter: PrismaAdapter(prisma),
 
   providers: [
     GoogleProvider({
@@ -30,80 +19,50 @@ const config = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: {
-          label: "Email",
-          type: "text",
-          placeholder: "jsmith@example.com",
-        },
+        email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(
-        credentials: Record<string, unknown> | undefined
-      ): Promise<AuthUser | null> {
-        if (
-          !credentials?.email ||
-          !credentials?.password ||
-          typeof credentials.email !== "string" ||
-          typeof credentials.password !== "string"
-        ) {
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          console.error("Missing credentials");
           return null;
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: credentials.email as string },
         });
 
-        if (!user || !user.password) return null;
+        if (!user || !user.password) {
+          console.error("Invalid user or password missing");
+          return null;
+        }
 
         const isValid = await bcrypt.compare(
-          credentials.password,
+          credentials.password as string,
           user.password
         );
-        if (!isValid) return null;
+
+        if (!isValid) {
+          console.error("Invalid password");
+          return null;
+        }
 
         return {
           id: user.id,
-          name: user.username ?? null,
-          email: user.email ?? null,
+          name: user.name,
+          email: user.email,
         };
       },
     }),
   ],
 
   session: {
-    strategy: "jwt" as const,
+    strategy: "jwt", 
   },
 
-  callbacks: {
-    async jwt({ token, user }: { token: JWT; user?: AuthUser }): Promise<JWT> {
-      if (user) {
-        token.id = user.id;
-        token.name = user.name ?? undefined;
-        token.email = user.email ?? undefined;
-      }
-      return token;
-    },
-
-    async session({
-      session,
-      token,
-    }: {
-      session: Session;
-      token: JWT;
-    }): Promise<CustomSession> {
-      if (session.user && token.id) {
-        (session.user as AuthUser).id = token.id as string;
-        (session.user as AuthUser).name = (token.name ?? null) as string | null;
-        (session.user as AuthUser).email = (token.email ?? null) as
-          | string
-          | null;
-      }
-
-      return session as CustomSession;
-    },
+  pages: {
+    signIn: "/login", 
   },
 };
 
-// -------------------------------------------------------------
-// V5 Export (auth + handlers)
-export const { handlers, auth } = NextAuth(config);
+export const { handlers, auth, signIn, signOut } = NextAuth(config);
