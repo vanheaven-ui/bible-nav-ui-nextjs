@@ -10,21 +10,19 @@ datasource db {
 
 /// Users table (manual signup + Google OAuth)
 model User {
-  id            String    @id @default(cuid())
-  username      String?   @unique
+  id            String     @id @default(cuid())
+  username      String?    @unique
   name          String?
-  email         String?   @unique
+  email         String?    @unique
   emailVerified DateTime?
-  password      String? // hashed password (null if user signed up with Google)
+  password      String?
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Relations
-  accounts  Account[]
-  sessions  Session[]
-  notes     Note[]
-  favorites Favorite[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  accounts      Account[]
+  favorites     Favorite[]
+  notes         Note[]
+  sessions      Session[]
 }
 
 /// OAuth Accounts (Google, etc.)
@@ -34,15 +32,14 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -53,8 +50,7 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 /// Email Verification tokens (NextAuth optional)
@@ -76,8 +72,7 @@ model Note {
   content   Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 /// Favorite verses
@@ -89,6 +84,5 @@ model Favorite {
   verseNumber Int
   verseText   String
   createdAt   DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

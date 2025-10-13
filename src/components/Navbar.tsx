@@ -30,6 +30,7 @@ type AuthAction = ActionLink | ActionButton;
 
 const Navbar: React.FC = () => {
   const { isAuthenticated, user, clearAuth } = useAuthStore();
+  
   const { hasNewVerse } = useVerseStore();
   const router = useRouter();
   const pathname = usePathname();
