@@ -3,13 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { getFavoriteVerses, deleteFavoriteVerse } from "../../lib/backendApi";
+import { getFavoriteVerses, deleteFavoriteVerse } from "@/lib/backendApi";
 import Link from "next/link";
 import { XCircle, Loader2 } from "lucide-react";
 
 interface FavoriteVerse {
   id: number;
-  userId?: string;
   book: string;
   chapter: number;
   verseNumber: number;
@@ -27,36 +26,31 @@ const FavoritesPage: React.FC = () => {
   const router = useRouter();
   const { data: session, status } = useSession();
 
-  const [favoriteVerses, setFavoriteVerses] = useState<FavoriteVerse[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [favorites, setFavorites] = useState<FavoriteVerse[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteLoadingId, setDeleteLoadingId] = useState<number | null>(null);
 
-  // Redirect to login if not authenticated
+  // Redirect unauthenticated users
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    }
+    if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
 
-  // Fetch favorite verses once session is ready
+  // Fetch user favorites
   useEffect(() => {
-    if (!session) return; // wait until session is loaded
+    if (!session) return;
 
     const fetchFavorites = async () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await getFavoriteVerses(); // session cookie is used automatically
-        setFavoriteVerses(
-          response.verses.map((v) => ({
-            ...v,
-            createdAt: new Date(v.createdAt),
-          }))
+        const { verses } = await getFavoriteVerses();
+        setFavorites(
+          verses.map((v) => ({ ...v, createdAt: new Date(v.createdAt) }))
         );
       } catch (err) {
-        console.error("Failed to fetch favorite verses:", err);
-        setError("Failed to load favorite verses. Please try again later.");
+        console.error(err);
+        setError("Failed to load your favorite verses. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -65,45 +59,43 @@ const FavoritesPage: React.FC = () => {
     fetchFavorites();
   }, [session]);
 
-  // Delete favorite verse
-  const handleDelete = async (verseId: number) => {
-    setDeleteLoadingId(verseId);
+  const handleDelete = async (id: number) => {
+    setDeleteLoadingId(id);
     setError(null);
     try {
-      await deleteFavoriteVerse(verseId); // session cookie is used automatically
-      setFavoriteVerses((prev) => prev.filter((v) => v.id !== verseId));
+      await deleteFavoriteVerse(id);
+      setFavorites((prev) => prev.filter((v) => v.id !== id));
     } catch (err) {
-      console.error("Failed to delete favorite verse:", err);
-      setError("Failed to delete favorite verse. Please try again.");
+      console.error(err);
+      setError("Failed to delete the verse. Please try again.");
     } finally {
       setDeleteLoadingId(null);
     }
   };
 
-  // Navigate to ChapterVersesPage
-  const handleVerseClick = (verse: FavoriteVerse) => {
+  const handleVerseClick = (verse: FavoriteVerse) =>
     router.push(
       `/books/${encodeURIComponent(verse.book)}/${verse.chapter}?verse=${
         verse.verseNumber
       }`
     );
-  };
 
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden text-[#2d2a26]">
+      {/* Background layers */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center"
         style={{ backgroundImage: "url('/images/parchment-bg.png')" }}
       />
       <div className="absolute inset-0 -z-10 bg-[#f9f5e7]/85" />
-
       <div className="absolute inset-0 -z-0">
         <div className="absolute top-1/4 left-1/3 w-[30vw] h-[30vw] rounded-full bg-[#d4af37]/25 blur-[120px]" />
         <div className="absolute bottom-1/4 right-1/3 w-[35vw] h-[35vw] rounded-full bg-[#a4161a]/25 blur-[150px]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 px-6 sm:px-10 lg:px-16 py-20 items-start">
-        <header className="text-left space-y-6 lg:sticky lg:top-20">
+      <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 px-6 sm:px-10 lg:px-16 py-20">
+        {/* Header */}
+        <header className="space-y-6 lg:sticky lg:top-20">
           <h1 className="text-4xl sm:text-6xl font-extrabold text-[#6b705c] leading-tight">
             Treasured <span className="text-[#a4161a]">Verses</span>
           </h1>
@@ -113,6 +105,7 @@ const FavoritesPage: React.FC = () => {
           </p>
         </header>
 
+        {/* Favorites list */}
         <section
           className="relative w-full p-8 sm:p-10 rounded-3xl shadow-2xl space-y-8
                             bg-gradient-to-br from-[#f9f5e7]/50 to-[#f9f5e7]/30 backdrop-blur-md border border-[#6b705c]/20
@@ -130,7 +123,7 @@ const FavoritesPage: React.FC = () => {
               <XCircle size={48} />
               <p className="text-lg font-semibold">{error}</p>
             </div>
-          ) : favoriteVerses.length === 0 ? (
+          ) : favorites.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center space-y-6 p-12">
               <h2 className="text-3xl font-bold text-[#6b705c]">
                 Your Sacred Collection Awaits
@@ -148,20 +141,17 @@ const FavoritesPage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-6">
-              {favoriteVerses.map((verse) => (
+              {favorites.map((verse) => (
                 <div
                   key={verse.id}
                   className="relative p-6 bg-[#f9f5e7]/80 rounded-2xl shadow-lg border border-[#6b705c]/20 flex flex-col justify-between 
-                             transition-all duration-300 cursor-pointer 
-                             group hover:shadow-xl hover:border-[#d4af37] hover:bg-[#f9f5e7] hover:scale-[1.02]"
+                             transition-all duration-300 cursor-pointer group hover:shadow-xl hover:border-[#d4af37] hover:bg-[#f9f5e7] hover:scale-[1.02]"
                   onClick={() => handleVerseClick(verse)}
                 >
                   <div
                     className="absolute inset-0 rounded-2xl border-4 border-dashed border-transparent 
-                                  group-hover:border-[#d4af37]/70 transition-all duration-500 ease-out 
-                                  pointer-events-none"
+                                  group-hover:border-[#d4af37]/70 transition-all duration-500 ease-out pointer-events-none"
                   />
-
                   <div>
                     <p className="text-[#6b705c] font-bold text-xl">
                       {verse.book} {verse.chapter}:{verse.verseNumber}

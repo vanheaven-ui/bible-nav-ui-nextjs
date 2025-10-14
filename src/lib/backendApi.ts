@@ -71,15 +71,18 @@ function parseDates<T>(obj: T): T {
   return obj;
 }
 
-async function makeLocalApiRequest<T>(
+export async function makeLocalApiRequest<T>(
   endpoint: string,
-  method: string = "GET",
+  method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
   body?: unknown
 ): Promise<T> {
+  const isBrowser = typeof window !== "undefined";
+
   const config: RequestInit = {
     method,
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
+    ...(isBrowser && { credentials: "include" as RequestCredentials }),
   };
 
   const response = await fetch(endpoint, config);

@@ -5,6 +5,9 @@ import { auth } from "@/lib/auth";
 export async function GET(_req: NextRequest) {
   const session = await auth();
 
+  console.log(session);
+  
+
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
