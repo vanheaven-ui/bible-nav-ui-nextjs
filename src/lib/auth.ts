@@ -5,6 +5,13 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 
+// Minimal user object returned by credentials provider
+interface SafeUser {
+  id: string;
+  name: string | null;
+  email: string | null;
+}
+
 const config: NextAuthConfig = {
   debug: process.env.NODE_ENV === "development",
 
@@ -24,58 +31,48 @@ const config: NextAuthConfig = {
       },
 
       async authorize(credentials) {
-        try {
-          if (!credentials) {
-            throw new Error(
-              "Missing credentials. Please provide email and password."
-            );
-          }
-
-          const { email, password } = credentials as {
-            email: string;
-            password: string;
-          };
-
-          if (!email || !password) {
-            throw new Error("Email and password are required.");
-          }
-
-          // Find user in database
-          const user = await prisma.user.findUnique({ where: { email } });
-
-          if (!user) {
-            throw new Error("No account found with that email address.");
-          }
-
-          if (!user.password) {
-            throw new Error(
-              "This account does not support password login. Try Google sign-in."
-            );
-          }
-
-          // Verify password
-          const isValid = await bcrypt.compare(password, user.password);
-          if (!isValid) {
-            throw new Error("Incorrect password. Please try again.");
-          }
-
-          // Return minimal safe user object
-          return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-          };
-        } catch (error: any) {
-          // Only log the message in production, not raw error stack
-          if (process.env.NODE_ENV === "development") {
-            console.error("❌ [Auth Error]:", error);
-          }
-
-          // Throw an error for next-auth to handle gracefully
+        if (!credentials) {
           throw new Error(
-            error.message || "Authentication failed. Please try again."
+            "Missing credentials. Please provide email and password."
           );
         }
+
+        const { email, password } = credentials as {
+          email: string;
+          password: string;
+        };
+
+        if (!email || !password) {
+          throw new Error("Email and password are required.");
+        }
+
+        // Find user in database
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        if (!user) {
+          throw new Error("No account found with that email address.");
+        }
+
+        if (!user.password) {
+          throw new Error(
+            "This account does not support password login. Try Google sign-in."
+          );
+        }
+
+        // Verify password
+        const isValid = await bcrypt.compare(password, user.password);
+        if (!isValid) {
+          throw new Error("Incorrect password. Please try again.");
+        }
+
+        // Return minimal safe user object
+        const safeUser: SafeUser = {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        };
+
+        return safeUser;
       },
     }),
   ],
@@ -86,11 +83,13 @@ const config: NextAuthConfig = {
 
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.id = user.id;
+      if (user) token.id = (user as SafeUser).id;
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) session.user.id = token.id as string;
+      if (session.user && token.id) {
+        session.user.id = token.id as string;
+      }
       return session;
     },
   },
