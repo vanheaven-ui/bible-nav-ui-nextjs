@@ -1,4 +1,4 @@
-# Bible Nav App
+# 📜 Bible Nav App
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
