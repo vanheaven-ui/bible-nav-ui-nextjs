@@ -10,6 +10,9 @@ export async function GET(req: NextRequest, context: Context) {
   const id = params.id;
 
   const session = await auth();
+
+  console.log(session);
+  
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
