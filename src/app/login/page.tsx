@@ -27,8 +27,21 @@ const LoginPage: React.FC = () => {
   // Handle credentials login
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+
+    if (!email.trim() || !password.trim()) {
+      setError("🙏 Please enter both your email and password to continue.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError(
+        "📜 That doesn’t look like a valid email address. Please check and try again."
+      );
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const result = await signIn("credentials", {
@@ -38,21 +51,64 @@ const LoginPage: React.FC = () => {
       });
 
       if (result?.error) {
-        setError(result.error);
+        switch (result.error.toLowerCase()) {
+          case "invalid credentials":
+          case "credentials signin failed":
+            setError(
+              "🙇‍♂️ The email or password you entered doesn’t match our records. Please try again."
+            );
+            break;
+          case "user not found":
+            setError(
+              "🕊 No account found with that email. Maybe you need to sign up?"
+            );
+            break;
+          default:
+            setError(
+              "⚠️ We couldn’t sign you in right now. Please check your details and try again shortly."
+            );
+        }
+        return;
       }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("An unexpected error occurred. Please try again.");
+
+      // Successful login
+      router.push("/");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        if (err.message.includes("Network")) {
+          setError(
+            "🌐 Connection issue — please check your internet and try again."
+          );
+        } else {
+          setError(
+            `⚠️ ${
+              err.message ||
+              "An unexpected issue occurred. Please try again soon."
+            }`
+          );
+        }
+      } else {
+        setError(
+          "⚠️ Something unexpected happened — please try again or refresh the page."
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
 
   // Handle Google sign-in
-  const handleGoogleSignIn = () => {
-    setGoogleLoading(true);
-    setError(null);
-    signIn("google", { callbackUrl: "/" });
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      setError(null);
+      await signIn("google", { callbackUrl: "/" });
+    } catch {
+      setError(
+        "🙏 We couldn’t connect to Google right now. Please try again later."
+      );
+      setGoogleLoading(false);
+    }
   };
 
   if (status === "loading") {
@@ -80,6 +136,7 @@ const LoginPage: React.FC = () => {
           <h2 className="mb-6 text-center text-2xl font-extrabold text-[#6b705c] md:text-left md:text-3xl">
             Log in to your account
           </h2>
+
           <form className="space-y-4" onSubmit={handleLoginSubmit}>
             <div>
               <label className="mb-1 block text-sm font-medium text-[#495057]">
@@ -92,7 +149,7 @@ const LoginPage: React.FC = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 className="focus:ring-[#d4af37] sm:text-sm block w-full rounded-xl border border-[#6b705c]/30 px-4 py-3 text-gray-900 placeholder-gray-400 outline-none transition focus:border-[#d4af37] focus:ring-2"
-                disabled={googleLoading} 
+                disabled={loading || googleLoading}
               />
             </div>
 
@@ -107,13 +164,13 @@ const LoginPage: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 className="focus:ring-[#d4af37] sm:text-sm block w-full rounded-xl border border-[#6b705c]/30 px-4 py-3 pr-12 text-gray-900 placeholder-gray-400 outline-none transition focus:border-[#d4af37] focus:ring-2"
-                disabled={googleLoading} 
+                disabled={loading || googleLoading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
                 className="absolute inset-y-0 right-0 top-6 flex items-center pr-3 text-[#6b705c] outline-none hover:text-[#495057]"
-                disabled={googleLoading} 
+                disabled={loading || googleLoading}
               >
                 {showPassword ? (
                   <EyeOff className="h-5 w-5" />
@@ -124,12 +181,23 @@ const LoginPage: React.FC = () => {
             </div>
 
             {error && (
-              <div className="text-center text-sm text-[#a4161a]">{error}</div>
+              <div className="text-center rounded-md border border-[#a4161a]/20 bg-[#fceaea]/80 p-3 text-sm text-[#7a1c1c] shadow-inner transition-all">
+                <p className="font-medium italic leading-snug">
+                  <span className="block text-[#a4161a] font-semibold">
+                    ⚔️ Take heart!
+                  </span>
+                  {error}
+                  <span className="block mt-1 text-xs text-[#6b705c]">
+                    “The righteous fall seven times and rise again.” — Proverbs
+                    24:16
+                  </span>
+                </p>
+              </div>
             )}
 
             <button
               type="submit"
-              disabled={loading || googleLoading} 
+              disabled={loading || googleLoading}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a4161a] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#822121] focus:outline-none focus:ring-2 focus:ring-[#d4af37] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
@@ -160,7 +228,7 @@ const LoginPage: React.FC = () => {
           </h2>
           <button
             onClick={handleGoogleSignIn}
-            disabled={googleLoading || loading} 
+            disabled={googleLoading || loading}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#d4af37] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#c89f2e] focus:outline-none focus:ring-2 focus:ring-[#a4161a] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {googleLoading ? (
